@@ -74,17 +74,23 @@ function RouteLane() {
   return (
     <group ref={ref}>
       <RouteBeaconGlow />
-      {Array.from({ length: getCaps().maxSkyMissiles >= 10 ? 16 : 8 }, (_, i) => (
-        <mesh key={i} position={[i % 2 === 0 ? -1.5 : 1.5, 0.3, -i * 14]}>
-          <sphereGeometry args={[0.28, 10, 10]} />
-          <meshStandardMaterial
-            color={i % 2 === 0 ? COLORS.warningRed : '#f8fafc'}
-            emissive={i % 2 === 0 ? '#ef4444' : '#e2e8f0'}
-            emissiveIntensity={0.45}
-            metalness={0.2}
-          />
-        </mesh>
-      ))}
+      {Array.from(
+        {
+          length:
+            perfState.tier === 'mobile' ? 4 : getCaps().maxSkyMissiles >= 10 ? 16 : 8,
+        },
+        (_, i) => (
+          <mesh key={i} position={[i % 2 === 0 ? -1.5 : 1.5, 0.3, -i * 14]}>
+            <sphereGeometry args={[0.28, perfState.tier === 'mobile' ? 6 : 10, 6]} />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? COLORS.warningRed : '#f8fafc'}
+              emissive={i % 2 === 0 ? '#ef4444' : '#e2e8f0'}
+              emissiveIntensity={0.45}
+              metalness={0.2}
+            />
+          </mesh>
+        ),
+      )}
     </group>
   )
 }
@@ -266,6 +272,7 @@ export default function StraitScenery({
   sky: { top: string; bottom: string; fog: string }
   nightMode: boolean
 }) {
+  const mobile = perfState.tier === 'mobile'
   const chaos = level.id >= 99 ? 1.35 : level.id >= 4 ? 1.1 : level.id >= 2 ? 0.7 : 0.4
   const caps = getCaps()
   const skyMissiles = Math.min(
@@ -275,16 +282,16 @@ export default function StraitScenery({
   return (
     <>
       <SkyDome sky={sky} nightMode={nightMode} />
-      {nightMode ? <NightSky /> : <SunGlare />}
+      {nightMode && !mobile ? <NightSky /> : !nightMode ? <SunGlare /> : null}
       <StraitShores nightMode={nightMode} levelId={level.id} />
       <RouteLane />
-      <Launchers />
+      {!mobile && <Launchers />}
       <StraitTankers levelId={level.id} />
       <DistantSmoke count={caps.maxDistantSmoke} />
-      <RefineryGlow level={level} />
-      <SurpriseFlares />
-      {level.searchlights && <Searchlights count={caps.maxSearchlights} />}
-      {level.id >= 4 && <JetSilhouettes count={caps.maxJets} />}
+      {!mobile && <RefineryGlow level={level} />}
+      {!mobile && <SurpriseFlares />}
+      {level.searchlights && !mobile && <Searchlights count={caps.maxSearchlights} />}
+      {level.id >= 4 && !mobile && <JetSilhouettes count={caps.maxJets} />}
       <SkyMissilesEnhanced count={skyMissiles} />
       <MinesweeperPulse />
       {radarActive() && (

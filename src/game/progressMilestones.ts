@@ -1,4 +1,5 @@
-import { progress } from './runtime'
+import { progress, runtime } from './runtime'
+import { isEndlessLevel } from './levels'
 import { useGame } from './store'
 import { sfx } from './systems/audio'
 
@@ -9,6 +10,7 @@ const MARKS = [
 ] as const
 
 export function runProgressMilestones(flags: Record<string, boolean>) {
+  if (isEndlessLevel(runtime.level.id)) return
   const p = progress()
   for (const m of MARKS) {
     const key = `mile-${m.at}`

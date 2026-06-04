@@ -545,6 +545,16 @@ body,
   padding: 16px 24px;
   font-size: 16px;
 }
+.menu-endless-hint {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  color: #fde047;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.menu-endless-hint b {
+  color: #fff;
+}
 .menu-chaos {
   box-shadow: 0 0 28px rgba(239, 68, 68, 0.35);
 }
@@ -758,6 +768,8 @@ body,
   border-radius: 50%;
   background: radial-gradient(circle at 38% 32%, #aef6fb, var(--teal) 70%, #0aa6af);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 18px rgba(18, 214, 223, 0.6);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 .mob-btn {
   position: absolute;
@@ -776,9 +788,10 @@ body,
   text-align: center;
   touch-action: none;
   backdrop-filter: blur(4px);
+  transition: transform 0.1s ease-out, box-shadow 0.12s ease-out;
 }
 .mob-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.94);
 }
 .mob-boost {
   right: max(24px, env(safe-area-inset-right));

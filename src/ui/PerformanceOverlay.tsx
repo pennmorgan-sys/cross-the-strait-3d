@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import {
+  effectivePixelRatio,
   getCaps,
   perfState,
   subscribePerf,
@@ -51,7 +52,9 @@ export default function PerformanceOverlay() {
         Emit {perfState.emitScale.toFixed(2)} · FX {perfState.fxMul.toFixed(2)} · DPR{' '}
         {perfState.dprScale.toFixed(2)}
       </div>
-      <div>DPR {dpr} · cap [{caps.dpr[0]}, {caps.dpr[1]}]</div>
+      <div>
+        DPR {dpr} · render {effectivePixelRatio().toFixed(2)} · cap [{caps.dpr[0]}, {caps.dpr[1]}]
+      </div>
       <div>
         Bombs {shown.counts.bombs}/{caps.maxBombs} · Boom{' '}
         {shown.counts.explosions}/{caps.maxExplosions}

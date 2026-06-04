@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { HudSnapshot, Screen } from './types'
-import { START_HEALTH, MAX_HEALTH } from './constants'
+import { START_HEALTH, MAX_HEALTH, ENDLESS_LEVEL_ID } from './constants'
+import { loadEndlessBest } from './systems/endlessStorage'
 import { loadBest, saveBest, type BestMap } from './systems/storage'
 import { loadSettings, saveSettings } from './systems/settings'
 import { initAudio, setSoundEnabled, sfx } from './systems/audio'
@@ -43,6 +44,8 @@ interface GameStore {
   nightMode: boolean
   soundOn: boolean
   chaosMode: boolean
+  endlessMode: boolean
+  endlessBest: number
   selectedLevel: number
   introDone: boolean
   best: BestMap
@@ -62,6 +65,8 @@ interface GameStore {
   setIntroDone: () => void
   startMission: (levelId: number) => void
   startChaos: () => void
+  startEndlessRun: () => void
+  refreshEndlessBest: () => void
   setHud: (h: HudSnapshot) => void
   updateBest: (id: number, rec: BestRecord) => void
   pushToast: (text: string, kind?: Toast['kind']) => void
@@ -80,6 +85,8 @@ export const useGame = create<GameStore>((set, get) => ({
   nightMode: initialSettings.nightMode,
   soundOn: initialSettings.soundOn,
   chaosMode: false,
+  endlessMode: false,
+  endlessBest: loadEndlessBest(),
   selectedLevel: 1,
   introDone: typeof localStorage !== 'undefined' && localStorage.getItem('cts-intro') === '1',
   best: loadBest(),
@@ -123,13 +130,25 @@ export const useGame = create<GameStore>((set, get) => ({
   startMission: (levelId) => {
     initAudio()
     sfx.ui()
-    set({ selectedLevel: levelId, chaosMode: false, screen: 'briefing' })
+    set({ selectedLevel: levelId, chaosMode: false, endlessMode: false, screen: 'briefing' })
   },
   startChaos: () => {
     initAudio()
     sfx.ui()
-    set({ selectedLevel: 99, chaosMode: true, screen: 'briefing' })
+    set({ selectedLevel: 99, chaosMode: true, endlessMode: false, screen: 'briefing' })
   },
+  startEndlessRun: () => {
+    initAudio()
+    sfx.ui()
+    set({
+      selectedLevel: ENDLESS_LEVEL_ID,
+      chaosMode: false,
+      endlessMode: true,
+      endlessBest: loadEndlessBest(),
+      screen: 'briefing',
+    })
+  },
+  refreshEndlessBest: () => set({ endlessBest: loadEndlessBest() }),
   setHud: (h) => set({ hud: h }),
 
   updateBest: (id, rec) => {

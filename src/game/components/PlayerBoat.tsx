@@ -69,7 +69,7 @@ export default function PlayerBoat() {
       runtime.player.z -= speed * dt
       tickProgress(speed * dt)
 
-      const control = isOiled() ? 1.6 : 5.5
+      const control = isOiled() ? 1.4 : perfState.tier === 'mobile' ? 4.2 : 5.5
       const targetVx = steer * MAX_LATERAL
       runtime.vx = lerp(runtime.vx, targetVx, damp(control, dt))
       runtime.player.x += runtime.vx * dt

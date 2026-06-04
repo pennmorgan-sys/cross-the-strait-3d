@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { WAVE_GLSL } from '../waves'
 import { runtime, isSafeWater, progress } from '../runtime'
 import { damp } from '../systems/math'
-import { getCaps, oceanQuality } from '../systems/performance'
+import { getCaps, oceanQuality, perfState } from '../systems/performance'
 
 const vertexShader = /* glsl */ `
 uniform float uTime;
@@ -99,9 +99,10 @@ function OceanCheap({ nightMode }: { nightMode?: boolean }) {
     )
   })
 
+  const [w, h] = perfState.tier === 'mobile' ? [24, 36] : [32, 48]
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[320, 480, 32, 48]} />
+      <planeGeometry args={[320, 480, w, h]} />
       <meshStandardMaterial
         color={color}
         emissive={nightMode ? '#0d4a62' : '#087EA4'}

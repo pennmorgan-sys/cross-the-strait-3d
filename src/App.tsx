@@ -13,6 +13,7 @@ import MobileControls from './ui/MobileControls'
 import GlobeIntro from './ui/GlobeIntro'
 import MissionBriefing from './ui/MissionBriefing'
 import PerformanceOverlay from './ui/PerformanceOverlay'
+import InputTicker from './game/InputTicker'
 
 export default function App() {
   useKeyboard()
@@ -24,6 +25,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <InputTicker />
       {screen === 'playing' && (
         <div className="canvas-wrap">
           <GameCanvas />

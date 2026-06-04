@@ -8,7 +8,7 @@ import {
   damage,
   addScore,
 } from './runtime'
-import { clamp } from './systems/math'
+import { clamp, damp, lerp } from './systems/math'
 
 const keys = {
   left: false,
@@ -18,32 +18,94 @@ const keys = {
   boost: false,
 }
 
-const joystick = { x: 0, y: 0, active: false }
+/** Raw touch target (updated on pointer events) */
+const joystickRaw = { x: 0, y: 0, active: false }
+/** Smoothed stick — updated each frame in tickInputSmoothing */
+const joystickSmooth = { x: 0, y: 0 }
+const keySteerSmooth = { v: 0 }
+const keyThrottleSmooth = { v: 0 }
 
 export function setJoystick(x: number, y: number) {
-  joystick.x = clamp(x, -1, 1)
-  joystick.y = clamp(y, -1, 1)
-  joystick.active = true
+  joystickRaw.x = clamp(x, -1, 1)
+  joystickRaw.y = clamp(y, -1, 1)
+  joystickRaw.active = true
 }
+
 export function releaseJoystick() {
-  joystick.x = 0
-  joystick.y = 0
-  joystick.active = false
+  joystickRaw.x = 0
+  joystickRaw.y = 0
+  joystickRaw.active = false
 }
+
 export function setBoostBtn(active: boolean) {
   keys.boost = active
 }
 
-// -1 (left) .. 1 (right)
-export function getSteer(): number {
-  if (joystick.active && Math.abs(joystick.x) > 0.05) return joystick.x
+function deadzone(v: number, zone: number) {
+  const a = Math.abs(v)
+  if (a < zone) return 0
+  const sign = v < 0 ? -1 : 1
+  return (sign * (a - zone)) / (1 - zone)
+}
+
+function keySteerTarget() {
   return (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
 }
-// -1 (slow/back) .. 1 (speed up). Joystick up = forward.
-export function getThrottle(): number {
-  if (joystick.active && Math.abs(joystick.y) > 0.05) return -joystick.y
+
+function keyThrottleTarget() {
   return (keys.up ? 1 : 0) - (keys.down ? 1 : 0)
 }
+
+/** Call once per render frame (R3F useFrame) for butter-smooth stick + keys */
+export function tickInputSmoothing(dt: number) {
+  const d = Math.min(Math.max(dt, 0.001), 0.05)
+  const stickRate = joystickRaw.active ? 16 : 22
+  const stickT = damp(stickRate, d)
+
+  if (joystickRaw.active) {
+    joystickSmooth.x = lerp(joystickSmooth.x, joystickRaw.x, stickT)
+    joystickSmooth.y = lerp(joystickSmooth.y, joystickRaw.y, stickT)
+  } else {
+    joystickSmooth.x = lerp(joystickSmooth.x, 0, stickT)
+    joystickSmooth.y = lerp(joystickSmooth.y, 0, stickT)
+    if (Math.abs(joystickSmooth.x) < 0.004) joystickSmooth.x = 0
+    if (Math.abs(joystickSmooth.y) < 0.004) joystickSmooth.y = 0
+  }
+
+  const keyRate = 12
+  const keyT = damp(keyRate, d)
+  keySteerSmooth.v = lerp(keySteerSmooth.v, keySteerTarget(), keyT)
+  keyThrottleSmooth.v = lerp(keyThrottleSmooth.v, keyThrottleTarget(), keyT)
+}
+
+/** Visual nub position in pixels — matches smoothed game input */
+export function getJoystickNubPx(radius: number) {
+  return {
+    x: joystickSmooth.x * radius,
+    y: joystickSmooth.y * radius,
+  }
+}
+
+export function isJoystickActive() {
+  return joystickRaw.active || Math.hypot(joystickSmooth.x, joystickSmooth.y) > 0.02
+}
+
+// -1 (left) .. 1 (right)
+export function getSteer(): number {
+  if (joystickRaw.active || Math.abs(joystickSmooth.x) > 0.02) {
+    return deadzone(joystickSmooth.x, 0.07)
+  }
+  return deadzone(keySteerSmooth.v, 0.02)
+}
+
+// -1 (slow/back) .. 1 (speed up). Joystick up = forward.
+export function getThrottle(): number {
+  if (joystickRaw.active || Math.abs(joystickSmooth.y) > 0.02) {
+    return deadzone(-joystickSmooth.y, 0.07)
+  }
+  return deadzone(keyThrottleSmooth.v, 0.02)
+}
+
 export function isBoosting(): boolean {
   return keys.boost
 }

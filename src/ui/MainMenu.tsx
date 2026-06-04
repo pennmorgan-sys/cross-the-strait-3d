@@ -2,11 +2,13 @@ import { useGame } from '../game/store'
 
 export default function MainMenu() {
   const startMission = useGame((s) => s.startMission)
+  const startEndlessRun = useGame((s) => s.startEndlessRun)
   const startChaos = useGame((s) => s.startChaos)
   const setScreen = useGame((s) => s.setScreen)
   const openSettings = useGame((s) => s.openSettings)
   const openControls = useGame((s) => s.openControls)
   const nightMode = useGame((s) => s.nightMode)
+  const endlessBest = useGame((s) => s.endlessBest)
 
   return (
     <div className="overlay menu-overlay">
@@ -20,11 +22,18 @@ export default function MainMenu() {
         {nightMode && <p className="menu-night-badge">NIGHT OPS ACTIVE</p>}
 
         <div className="btn-col menu-buttons">
+          <button type="button" className="btn btn-lg gold" onClick={startEndlessRun}>
+            STRAIT RUN
+          </button>
+          <p className="menu-endless-hint">
+            Endless high score · Hormuz corridor · Best{' '}
+            <b>{endlessBest > 0 ? endlessBest.toLocaleString() : '—'}</b>
+          </p>
           <button type="button" className="btn btn-lg" onClick={() => startMission(1)}>
-            START MISSION
+            STORY MISSIONS
           </button>
           <button type="button" className="btn secondary" onClick={() => setScreen('levels')}>
-            MISSIONS
+            MISSION SELECT
           </button>
           <button type="button" className="btn danger menu-chaos" onClick={startChaos}>
             CHAOS CHALLENGE
@@ -40,7 +49,7 @@ export default function MainMenu() {
         </div>
 
         <p className="brand-foot">
-          8 operations · Chaos mode · Night ops · Sound on in Settings
+          8 operations · Strait Run · Chaos · Night ops
         </p>
       </div>
     </div>

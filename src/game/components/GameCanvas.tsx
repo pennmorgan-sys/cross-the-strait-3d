@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { useGame } from '../store'
 import { getLevel } from '../levels'
 import { skyForLevel } from '../systems/settings'
-import { getCaps, perfState, subscribePerf } from '../systems/performance'
+import { getCaps, getCanvasDpr, perfState, subscribePerf } from '../systems/performance'
 import Ocean from './Ocean'
 import Lighting from './Lighting'
 import StraitScenery from './StraitScenery'
@@ -40,11 +40,13 @@ export default function GameCanvas() {
   return (
     <Canvas
       shadows={caps.shadows}
-      dpr={caps.dpr}
+      dpr={getCanvasDpr()}
       frameloop={paused ? 'never' : 'always'}
       gl={{
         antialias: perfState.tier === 'high',
         powerPreference: 'high-performance',
+        alpha: false,
+        stencil: false,
       }}
       camera={{ fov: 68, near: 0.1, far: 340, position: [0, 5, 11] }}
       onCreated={({ gl }) => {

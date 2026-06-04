@@ -31,7 +31,9 @@ export interface LevelConfig {
   name: string
   tag: string
   description: string
-  difficulty: 'Easy' | 'Normal' | 'Hard' | 'Extreme' | 'Insane' | 'Chaos'
+  difficulty: 'Easy' | 'Normal' | 'Hard' | 'Extreme' | 'Insane' | 'Chaos' | 'Endless'
+  /** Endless high-score mode — no mission finish */
+  endless?: boolean
   length: number // forward distance units to complete
   speed: number // base forward speed
   bombInterval: number // seconds between bomb drops (0 = none)
@@ -44,6 +46,12 @@ export interface LevelConfig {
   storm: boolean
   targetScore: number
   sky: { top: string; bottom: string; fog: string }
+  /** Seconds of travel between normal supply spawns (1–2 crates) */
+  normalSupplyIntervalSeconds?: number
+  /** Max supply crates visible ahead during normal play */
+  maxVisibleSupplies?: number
+  /** Cap for scripted supply burst events */
+  specialSupplyBurstMax?: number
 }
 
 export interface BestRecord {
@@ -72,6 +80,10 @@ export interface HudSnapshot {
   interceptEvent: boolean
   activeSurprise: string
   minesweeperReady: boolean
+  /** Endless Strait Run — distance in display units */
+  endlessDistance?: number
+  endlessBest?: number
+  isEndless?: boolean
 }
 
 export interface RunStats {

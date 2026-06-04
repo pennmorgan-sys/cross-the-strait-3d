@@ -1,5 +1,5 @@
 import type { TankerRouteId } from './types'
-import { CHAOS_LEVEL_ID } from './levels'
+import { CHAOS_LEVEL_ID, ENDLESS_LEVEL_ID } from './constants'
 
 export interface MissionBriefing {
   levelId: number
@@ -118,6 +118,19 @@ export const MISSION_BRIEFINGS: MissionBriefing[] = [
     threat: 'Ambush intercepts, final salvos, lane blockades.',
     objective: 'Reach safe water.',
     surpriseHint: 'Ambush at 60% — final push banner before calm seas.',
+  },
+  {
+    levelId: ENDLESS_LEVEL_ID,
+    codename: 'STRAIT RUN',
+    title: 'Strait of Hormuz — Endless',
+    routeLabel: 'HORMUZ HIGH SCORE',
+    tankerRoute: 'china',
+    commander:
+      'One lane, no finish line. Dodge, collect, survive — every nautical mile pushes your score higher.',
+    mission: 'Endless escort through the Strait.',
+    threat: 'Speed and threat escalate the farther you run.',
+    objective: 'Beat your personal best before the hull breaks.',
+    surpriseHint: 'Threat tier rises every few miles — supplies stay sparse.',
   },
   {
     levelId: CHAOS_LEVEL_ID,

@@ -10,7 +10,8 @@ import {
   POWERUP_RADAR_MS,
   OIL_SLIP_MS,
 } from './constants'
-import { getLevel, CHAOS_LEVEL_ID } from './levels'
+import { getLevel, CHAOS_LEVEL_ID, isEndlessLevel, ENDLESS_LEVEL } from './levels'
+import { saveEndlessBest, loadEndlessBest } from './systems/endlessStorage'
 import { getMissionBriefing } from './missionBriefings'
 import type { HudSnapshot, LevelConfig, PowerUpType, RunStats, TankerRouteId } from './types'
 import { useGame } from './store'
@@ -69,6 +70,8 @@ export const runtime = {
   boosting: false,
 
   progressUnits: 0,
+  /** Endless Strait Run distance (world units) */
+  endlessDistance: 0,
 
   invincibleUntil: 0,
   slowUntil: 0,
@@ -101,19 +104,68 @@ export const skyFlash = () => clamp((runtime.flashUntil - now()) / 220, 0, 1)
 export const minesweeperActive = () => now() < runtime.minesweeperPulseUntil
 
 export function progress() {
+  if (isEndlessLevel(runtime.level.id)) {
+    return clamp(runtime.endlessDistance / 6000, 0, 0.99)
+  }
   const route =
     runtime.tankerProgress * 0.82 +
     (runtime.progressUnits / runtime.level.length) * 0.18
   return clamp(route, 0, 1)
 }
 
+export function endlessNm() {
+  return Math.max(0, Math.round(runtime.endlessDistance / 48))
+}
+
 export function isFinalDash() {
+  if (isEndlessLevel(runtime.level.id)) return false
   const lid = runtime.level.id
   return (lid === 8 || lid === CHAOS_LEVEL_ID) && progress() > 0.78
 }
 
 export function isSafeWater() {
+  if (isEndlessLevel(runtime.level.id)) return false
   return progress() > 0.88
+}
+
+let endlessBeatNm = 0
+
+function resetEndlessEscalation() {
+  runtime.endlessDistance = 0
+  endlessBeatNm = 0
+  runtime.level.speed = ENDLESS_LEVEL.speed
+  runtime.level.bombInterval = ENDLESS_LEVEL.bombInterval
+  runtime.level.obstacleGap = ENDLESS_LEVEL.obstacleGap
+  runtime.level.mineBias = ENDLESS_LEVEL.mineBias
+  runtime.level.bombBurst = ENDLESS_LEVEL.bombBurst
+}
+
+function tickEndlessEscalation(d: number) {
+  runtime.endlessDistance += d
+  const tier = Math.floor(runtime.endlessDistance / 320)
+
+  runtime.level.speed = ENDLESS_LEVEL.speed + tier * 1.15
+  runtime.level.bombInterval = Math.max(0.55, ENDLESS_LEVEL.bombInterval - tier * 0.045)
+  runtime.level.obstacleGap = Math.max(8, ENDLESS_LEVEL.obstacleGap - tier * 0.22)
+  runtime.level.mineBias = Math.min(0.48, ENDLESS_LEVEL.mineBias + tier * 0.012)
+  if (tier >= 2 && tier % 3 === 0) {
+    runtime.level.bombBurst = Math.min(4, ENDLESS_LEVEL.bombBurst + 1)
+  }
+
+  addScore(Math.max(1, Math.floor(d * 2.8)), false)
+
+  runtime.openingClock += d / Math.max(1, runtime.level.speed)
+  tickSurpriseBanner()
+
+  const nm = endlessNm()
+  if (nm >= endlessBeatNm + 1) {
+    endlessBeatNm = nm
+    if (nm > 0 && nm % 4 === 0) {
+      runtime.incoming = Math.min(2.5, runtime.incoming + 0.9)
+      runtime.activeSurprise = 'STRAIT PRESSURE RISING'
+      runtime.surpriseBannerUntil = now() + 2200
+    }
+  }
 }
 
 export function startLevel(id: number) {
@@ -140,6 +192,8 @@ export function startLevel(id: number) {
   runtime.boost = 1
   runtime.boosting = false
   runtime.progressUnits = 0
+  if (isEndlessLevel(id)) resetEndlessEscalation()
+  else runtime.endlessDistance = 0
 
   runtime.invincibleUntil = 0
   runtime.slowUntil = 0
@@ -173,6 +227,10 @@ export function startLevel(id: number) {
   const g = useGame.getState()
   g.setSelectedLevel(id)
   g.setScreen('playing')
+  useGame.setState({
+    endlessMode: isEndlessLevel(id),
+    chaosMode: id === CHAOS_LEVEL_ID,
+  })
   flushHud(true)
 }
 
@@ -253,8 +311,8 @@ export function grantPowerUp(type: PowerUpType) {
       useGame.getState().pushToast('SHIELD UP', 'good')
       break
     case 'repair':
-      runtime.health = clamp(runtime.health + 2, 0, MAX_HEALTH)
-      useGame.getState().pushToast('REPAIRED +2', 'good')
+      runtime.health = clamp(runtime.health + 1, 0, MAX_HEALTH)
+      useGame.getState().pushToast('REPAIRED +1', 'good')
       break
     case 'turbo':
       runtime.boost = 1
@@ -326,6 +384,15 @@ export function triggerInterceptEvent() {
 
 export function tickProgress(d: number) {
   if (!runtime.running) return
+  if (isEndlessLevel(runtime.level.id)) {
+    tickEndlessEscalation(d)
+    if (runtime.interceptTimer > 0) {
+      runtime.interceptTimer -= d / runtime.level.speed
+      if (runtime.interceptTimer <= 0) runtime.interceptEvent = false
+    }
+    runtime.incoming = Math.max(0, runtime.incoming - (d / runtime.level.speed) * 0.35)
+    return
+  }
   runtime.progressUnits += d
   runtime.tankerProgress = clamp(
     runtime.progressUnits / runtime.level.length,
@@ -371,7 +438,19 @@ export function finishLevel() {
 export function gameOver() {
   if (!runtime.running) return
   runtime.running = false
-  saveResult(false)
+  if (isEndlessLevel(runtime.level.id)) {
+    const record = saveEndlessBest(runtime.score)
+    useGame.getState().updateBest(runtime.level.id, {
+      score: runtime.score,
+      stars: 0,
+    })
+    useGame.getState().refreshEndlessBest()
+    if (record) {
+      useGame.getState().pushToast('NEW STRAIT RUN RECORD!', 'good')
+    }
+  } else {
+    saveResult(false)
+  }
   sfx.gameOver()
   useGame.getState().setScreen('gameOver')
 }
@@ -405,11 +484,18 @@ export function flushHud(force = false) {
     minesweeperReady:
       runtime.level.id >= 3 &&
       (runtime.powerUp === 'minesweeper' || now() >= runtime.minesweeperCooldownUntil),
+    isEndless: isEndlessLevel(runtime.level.id),
+    endlessDistance: isEndlessLevel(runtime.level.id) ? endlessNm() : undefined,
+    endlessBest: isEndlessLevel(runtime.level.id) ? loadEndlessBest() : undefined,
   }
   useGame.getState().setHud(snap)
 }
 
 function bannerText(): string {
+  if (isEndlessLevel(runtime.level.id)) {
+    if (runtime.activeSurprise) return runtime.activeSurprise
+    return `STRAIT RUN · ${endlessNm()} NM · BEST ${loadEndlessBest().toLocaleString()}`
+  }
   if (runtime.activeSurprise) return runtime.activeSurprise
   if (runtime.interceptEvent) return 'INTERCEPT SHIPS INBOUND'
   if (isSafeWater()) return 'SAFE WATER AHEAD'

@@ -20,10 +20,12 @@ export const TANKER_HALF_W = 3.1
 export const TANKER_HALF_L = 5.2
 /** @deprecated use TANKER_HALF_W */
 export const BOAT_RADIUS = TANKER_HALF_W
-export const START_HEALTH = 5
+export const START_HEALTH = 4
 export const MAX_HEALTH = 6
 export const TOTAL_LEVELS = 8
 export const CHAOS_LEVEL_ID = 99
+/** Endless high-score run — Strait of Hormuz */
+export const ENDLESS_LEVEL_ID = 100
 
 export const STEER_SPEED = 15 // lateral acceleration response
 export const MAX_LATERAL = 12
@@ -37,14 +39,31 @@ export const BOOST_REGEN = 0.09 // passive boost regen per second
 export const SPAWN_AHEAD = 110 // how far ahead (-Z) hazards spawn
 export const DESPAWN_BEHIND = 22 // recycle distance behind player
 
-export const INVINCIBLE_MS = 2000
+export const INVINCIBLE_MS = 1500
 export const BOMB_WARNING_TIME = 1.9
 export const BOMB_BLAST_RADIUS = 6
 export const EXPLOSION_DURATION = 0.8
 export const NEAR_MISS_DIST = 2.6
 
-export const PICKUP_RADIUS = 4.8
-export const POWERUP_SPAWN_CHANCE = 0.48
+export const PICKUP_RADIUS = 4.2
+export const POWERUP_SPAWN_CHANCE = 0.26
+
+/** Default supply pacing (overridable per level) */
+export const NORMAL_SUPPLY_INTERVAL_SEC = 2
+export const MAX_VISIBLE_SUPPLIES = 6
+export const SPECIAL_SUPPLY_BURST_MAX = 8
+
+/** Hard caps for active gameplay objects (tier scales in performance.ts) */
+export const MAX_ACTIVE = {
+  BOMBS: 8,
+  EXPLOSIONS: 6,
+  SMOKE: 80,
+  MISSILE_TRAILS: 40,
+  SUPPLIES: 8,
+  HAZARDS: 45,
+  PARTICLES: 160,
+  SKY_MISSILES: 12,
+} as const
 
 export const POWERUP_SLOW_MS = 4500
 export const POWERUP_MAGNET_MS = 9000

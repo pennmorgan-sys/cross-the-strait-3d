@@ -112,7 +112,9 @@ export default function Hud() {
       <div className="hud-bottom">
         <div className="hud-progress">
           <div className="route-progress-label">
-            TANKER ROUTE · {Math.round(hud.progress * 100)}%
+            {hud.isEndless
+              ? `STRAIT RUN · ${hud.endlessDistance ?? 0} NM · BEST ${(hud.endlessBest ?? 0).toLocaleString()}`
+              : `TANKER ROUTE · ${Math.round(hud.progress * 100)}%`}
           </div>
           <div className={`bar dist${hud.progress >= 0.88 ? ' bar-safe' : ''}`}>
             <SmoothBar targetPct={hud.progress * 100} />

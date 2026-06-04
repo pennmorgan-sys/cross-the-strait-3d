@@ -38,7 +38,7 @@ interface KindSpec {
 }
 
 const SPEC: Record<ObstacleKind, KindSpec> = {
-  mine: { w: 1.3, l: 1.3, clear: 2.5, dmg: 1 },
+  mine: { w: 1.3, l: 1.3, clear: 2.4, dmg: 2 },
   patrol: { w: 1.7, l: 2.6, clear: 2.5, dmg: 1 },
   cargo: { w: 4.6, l: 7, clear: 7.2, dmg: 1 },
   debris: { w: 1.1, l: 1.1, clear: 1.7, dmg: 1 },
@@ -118,11 +118,11 @@ export default function Hazards() {
     } else {
       spawn(kind, rand(-7, 7), z)
       // Higher levels add a second obstacle, leaving a gap to thread.
-      if (level.id >= 2 && Math.random() < 0.38) {
+      if (level.id >= 2 && Math.random() < 0.48) {
         const k2 = chooseKind()
         if (k2 !== 'cargo') spawn(k2, rand(-7, 7), z - rand(4, 9))
       }
-      if (level.id >= 4 && Math.random() < 0.28) {
+      if (level.id >= 4 && Math.random() < 0.36) {
         const k3 = chooseKind()
         if (k3 !== 'cargo') spawn(k3, rand(-7.5, 7.5), z - rand(10, 15))
       }

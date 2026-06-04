@@ -1,5 +1,7 @@
 /** Runtime quality tiers, effect caps, FPS tracking, and soft throttles. */
 
+import { MAX_ACTIVE } from '../constants'
+
 export type QualityTier = 'high' | 'normal' | 'mobile'
 export type QualityMode = QualityTier | 'auto'
 
@@ -29,74 +31,95 @@ export interface PerfCaps {
 
 const CAPS: Record<QualityTier, PerfCaps> = {
   high: {
-    maxBombs: 8,
-    maxExplosions: 6,
-    maxSmoke: 80,
-    maxMissileTrails: 40,
-    maxSupplies: 48,
-    maxHazards: 45,
-    maxParticles: 160,
-    maxSkyMissiles: 12,
+    maxBombs: MAX_ACTIVE.BOMBS,
+    maxExplosions: MAX_ACTIVE.EXPLOSIONS,
+    maxSmoke: 70,
+    maxMissileTrails: MAX_ACTIVE.MISSILE_TRAILS,
+    maxSupplies: MAX_ACTIVE.SUPPLIES,
+    maxHazards: MAX_ACTIVE.HAZARDS,
+    maxParticles: MAX_ACTIVE.PARTICLES,
+    maxSkyMissiles: MAX_ACTIVE.SKY_MISSILES,
     maxJets: 4,
     maxSearchlights: 5,
-    maxDistantSmoke: 8,
-    pickupLights: true,
-    hazardLights: true,
+    maxDistantSmoke: 6,
+    pickupLights: false,
+    hazardLights: false,
     shadows: true,
     shadowMapSize: 1024,
     bloom: true,
     postfx: true,
-    dpr: [1, 1.35],
+    dpr: [1, 1.5],
     oceanSegments: [96, 140],
     particleEmitScale: 0.9,
     bloomMultisampling: 0,
   },
   normal: {
-    maxBombs: 8,
-    maxExplosions: 6,
-    maxSmoke: 60,
-    maxMissileTrails: 30,
-    maxSupplies: 44,
-    maxHazards: 40,
-    maxParticles: 100,
+    maxBombs: 7,
+    maxExplosions: 5,
+    maxSmoke: 50,
+    maxMissileTrails: 28,
+    maxSupplies: 6,
+    maxHazards: 38,
+    maxParticles: 90,
     maxSkyMissiles: 6,
     maxJets: 2,
     maxSearchlights: 3,
-    maxDistantSmoke: 5,
-    pickupLights: true,
+    maxDistantSmoke: 4,
+    pickupLights: false,
     hazardLights: false,
     shadows: false,
     shadowMapSize: 512,
     bloom: false,
     bloomMultisampling: 0,
     postfx: false,
-    dpr: [1, 1.15],
+    dpr: [1, 1.5],
     oceanSegments: [48, 72],
     particleEmitScale: 0.8,
   },
   mobile: {
-    maxBombs: 5,
-    maxExplosions: 3,
-    maxSmoke: 35,
-    maxMissileTrails: 20,
-    maxSupplies: 32,
-    maxHazards: 30,
-    maxParticles: 80,
-    maxSkyMissiles: 5,
-    maxJets: 2,
-    maxSearchlights: 2,
-    maxDistantSmoke: 4,
-    pickupLights: true,
+    maxBombs: 4,
+    maxExplosions: 2,
+    maxSmoke: 18,
+    maxMissileTrails: 10,
+    maxSupplies: 4,
+    maxHazards: 22,
+    maxParticles: 45,
+    maxSkyMissiles: 2,
+    maxJets: 0,
+    maxSearchlights: 0,
+    maxDistantSmoke: 2,
+    pickupLights: false,
     hazardLights: false,
     shadows: false,
     shadowMapSize: 512,
     bloom: false,
     bloomMultisampling: 0,
     postfx: false,
-    dpr: [0.75, 1],
-    oceanSegments: [32, 48],
-    particleEmitScale: 0.55,
+    /** Bounds only — actual ratio from getCanvasDpr() on Retina */
+    dpr: [1.15, 2],
+    oceanSegments: [24, 36],
+    particleEmitScale: 0.5,
   },
+}
+
+/** Mobile DPR: sharp enough on Retina without full 3× framebuffer cost */
+export function getMobileDprRange(): [number, number] {
+  const ratio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const max = Math.min(2, Math.max(1.35, ratio * 0.72))
+  const min = Math.min(1.15, max * 0.88)
+  return [min, max]
+}
+
+export function getCanvasDpr(): [number, number] {
+  if (perfState.tier === 'mobile') return getMobileDprRange()
+  return getCaps().dpr
+}
+
+export function effectivePixelRatio(): number {
+  const [min, max] = getCanvasDpr()
+  if (perfState.tier === 'mobile') return max
+  const ratio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  return Math.max(min, Math.min(max, ratio * perfState.dprScale))
 }
 
 export const perfState = {
@@ -113,7 +136,7 @@ export const perfState = {
   /** DPR multiplier 0.75–1 */
   dprScale: 1,
   overlayVisible: false,
-  hudFlushMs: 80,
+  hudFlushMs: 100,
   counts: {
     bombs: 0,
     explosions: 0,
@@ -228,17 +251,23 @@ export function tickPerformance(dt: number, simActive = true) {
   const prevEmit = perfState.emitScale
   const prevFx = perfState.fxMul
 
+  const throttleDpr = perfState.tier !== 'mobile'
+
   if (fps < 50) {
     softLowMs += dt * 1000
     if (fps < 28) {
       perfState.emitScale = Math.max(0.35, perfState.emitScale - dt * 0.25)
       perfState.fxMul = Math.max(0, perfState.fxMul - dt * 0.45)
-      perfState.dprScale = Math.max(0.78, perfState.dprScale - dt * 0.12)
+      if (throttleDpr) {
+        perfState.dprScale = Math.max(0.78, perfState.dprScale - dt * 0.12)
+      }
       perfState.performanceReduced = true
     } else if (fps < 40) {
       perfState.emitScale = Math.max(0.5, perfState.emitScale - dt * 0.12)
       perfState.fxMul = Math.max(0.35, perfState.fxMul - dt * 0.2)
-      perfState.dprScale = Math.max(0.85, perfState.dprScale - dt * 0.05)
+      if (throttleDpr) {
+        perfState.dprScale = Math.max(0.85, perfState.dprScale - dt * 0.05)
+      }
       perfState.performanceReduced = true
     }
   } else {
@@ -246,7 +275,9 @@ export function tickPerformance(dt: number, simActive = true) {
     if (fps > 55) {
       perfState.emitScale = Math.min(1, perfState.emitScale + dt * 0.06)
       perfState.fxMul = Math.min(1, perfState.fxMul + dt * 0.15)
-      perfState.dprScale = Math.min(1, perfState.dprScale + dt * 0.04)
+      if (throttleDpr) {
+        perfState.dprScale = Math.min(1, perfState.dprScale + dt * 0.04)
+      }
       if (perfState.emitScale >= 0.95 && perfState.fxMul >= 0.95) {
         perfState.performanceReduced = false
       }

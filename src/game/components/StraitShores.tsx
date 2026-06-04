@@ -175,8 +175,10 @@ function CoastSide({
 }) {
   const palette = side === -1 ? PALETTE.iran : PALETTE.oman
   const isIran = side === -1
-  const showTerminal = levelId >= 5
+  const mobile = perfState.tier === 'mobile'
+  const showTerminal = levelId >= 5 && !mobile
   const coastX = side * 36
+  const coastLen = mobile ? 260 : 620
   const shadow = getCaps().shadows
 
   const settlements = useMemo(() => settlementsFor(side), [side])
@@ -203,35 +205,35 @@ function CoastSide({
     <group>
       {/* Deep land base — sloped plateau */}
       <mesh position={[coastX + side * 8, 0.8, 0]} receiveShadow={shadow} castShadow={shadow}>
-        <boxGeometry args={[52, 2.2, 640]} />
+        <boxGeometry args={[52, 2.2, coastLen + 20]} />
         <meshStandardMaterial color={palette.rock} roughness={0.95} />
       </mesh>
       <mesh position={[coastX + side * 14, 2.2, 0]} receiveShadow>
-        <boxGeometry args={[40, 3.5, 620]} />
+        <boxGeometry args={[40, 3.5, coastLen]} />
         <meshStandardMaterial color={palette.scrub} roughness={0.92} />
       </mesh>
 
       {/* Cliff face toward the strait */}
       <mesh position={[coastX - side * 6, 2.5, 0]} receiveShadow>
-        <boxGeometry args={[4, 6, 620]} />
+        <boxGeometry args={[4, 6, coastLen]} />
         <meshStandardMaterial color={palette.cliff} roughness={1} />
       </mesh>
       {/* Cliff vertical cap */}
       <mesh position={[coastX - side * 4, 4.5, 0]}>
-        <boxGeometry args={[1.5, 3, 620]} />
+        <boxGeometry args={[1.5, 3, coastLen]} />
         <meshStandardMaterial color="#3d3020" roughness={1} />
       </mesh>
 
       {/* Beach / shoreline strip */}
       <mesh position={[coastX - side * 2, 0.25, 0]} receiveShadow>
-        <boxGeometry args={[14, 0.55, 620]} />
+        <boxGeometry args={[14, 0.55, coastLen]} />
         <meshStandardMaterial color={palette.beach} roughness={0.82} />
       </mesh>
       <mesh
         position={[coastX - side * 1.5, 0.08, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
-        <planeGeometry args={[12, 620]} />
+        <planeGeometry args={[12, coastLen]} />
         <meshStandardMaterial
           color={palette.sand}
           roughness={0.75}
@@ -248,7 +250,7 @@ function CoastSide({
         </mesh>
       ))}
       {/* Distant mountain wall */}
-      {[-180, -60, 80, 200].map((z, i) => (
+      {(mobile ? [-80, 120] : [-180, -60, 80, 200]).map((z, i) => (
         <mesh key={`mtn-${i}`} position={[coastX + side * 18, 9 + i * 2, z]} castShadow={shadow}>
           <coneGeometry args={[10 + i * 2, 22 + i * 4, 8]} />
           <meshStandardMaterial
@@ -341,7 +343,7 @@ function CoastSide({
       ))}
 
       {/* Channel markers */}
-      {Array.from({ length: 10 }, (_, i) => i * 55 - 250).map((z, i) => (
+      {Array.from({ length: mobile ? 5 : 10 }, (_, i) => i * 55 - 250).map((z, i) => (
         <mesh key={`buoy-${i}`} position={[coastX - side * 1.2, 0.9, z]}>
           <cylinderGeometry args={[0.35, 0.4, 1.2, 8]} />
           <meshStandardMaterial
@@ -371,7 +373,7 @@ function CoastSide({
       )}
 
       {/* Port lights at night — Oman */}
-      {!isIran && nightMode && (
+      {!isIran && nightMode && !mobile && (
         <pointLight position={[coastX, 6, 0]} color="#fbbf24" intensity={2} distance={70} />
       )}
     </group>

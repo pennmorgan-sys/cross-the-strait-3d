@@ -2,7 +2,7 @@ import { useGame } from '../game/store'
 import { getMissionBriefing } from '../game/missionBriefings'
 import { startLevel } from '../game/runtime'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
-import { CHAOS_LEVEL_ID } from '../game/levels'
+import { CHAOS_LEVEL_ID, ENDLESS_LEVEL_ID } from '../game/constants'
 
 export default function MissionBriefing() {
   const selectedLevel = useGame((s) => s.selectedLevel)
@@ -16,7 +16,11 @@ export default function MissionBriefing() {
 
       <div className="panel briefing-panel">
         <p className="briefing-phase tagline show">
-          {selectedLevel === CHAOS_LEVEL_ID ? 'CHAOS BRIEFING' : 'COMMANDER BRIEFING'}
+          {selectedLevel === ENDLESS_LEVEL_ID
+            ? 'STRAIT RUN'
+            : selectedLevel === CHAOS_LEVEL_ID
+              ? 'CHAOS BRIEFING'
+              : 'COMMANDER BRIEFING'}
         </p>
 
         <p className="briefing-codename show">{mission.codename}</p>

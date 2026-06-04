@@ -1,7 +1,7 @@
 /**
  * Per-mission surprise beats — scripted spawns, toasts, and HUD callouts.
  */
-import { CHAOS_LEVEL_ID } from './levels'
+import { CHAOS_LEVEL_ID, isEndlessLevel } from './levels'
 import {
   runtime,
   progress,
@@ -71,14 +71,18 @@ function spawnBombSalvo(n: number) {
 
 function supplyRain(count: number) {
   const pz = runtime.player.z
-  for (let i = 0; i < count; i++) {
-    runtime.scriptedCrates.push({ x: (Math.random() - 0.5) * 10, z: pz - 16 - i * 3 })
+  const n = Math.min(count, 6)
+  for (let i = 0; i < n; i++) {
+    runtime.scriptedCrates.push({
+      x: (Math.random() - 0.5) * 8,
+      z: pz - 24 - i * 10,
+    })
   }
 }
 
 /** Time-based beats (openingClock) */
 export function runOpeningSurprises() {
-  if (!runtime.running) return
+  if (!runtime.running || isEndlessLevel(runtime.level.id)) return
   const lid = runtime.level.id
   const pz = runtime.player.z
   const once = (key: string, at: number, fn: () => void) => {
@@ -89,7 +93,7 @@ export function runOpeningSurprises() {
 
   if (lid === 1) {
     once('l1-supply', 0.35, () => {
-      supplyRain(8)
+      supplyRain(4)
       toast('CONVOY SUPPLY DROP', 'good')
     })
     once('l1-intercept', 2, () => {
@@ -103,7 +107,7 @@ export function runOpeningSurprises() {
       spawnBombSalvo(1)
     })
     once('l1-gift', 7, () => {
-      supplyRain(9)
+      supplyRain(4)
       toast('ALLIED REINFORCEMENTS', 'good')
     })
   }
@@ -176,7 +180,7 @@ export function runOpeningSurprises() {
     once('l7-merge', 1.1, () => {
       setSurpriseBanner('TWIN CONVOY MERGE')
       toast('SECOND TANKER ON YOUR PORT SIDE', 'info')
-      supplyRain(7)
+      supplyRain(6)
     })
     once('l7-cross', 4.2, () => {
       spawnBombSalvo(2)
@@ -208,7 +212,7 @@ export function runOpeningSurprises() {
 
 /** Progress-based surprises (0..1) */
 export function runProgressSurprises() {
-  if (!runtime.running) return
+  if (!runtime.running || isEndlessLevel(runtime.level.id)) return
   const lid = runtime.level.id
   const p = progress()
   const pz = runtime.player.z
@@ -238,7 +242,7 @@ export function runProgressSurprises() {
   }
 
   if (lid === 5 && p > 0.5 && tryFlag('l5-mid')) {
-    supplyRain(5)
+    supplyRain(6)
     toast('TERMINAL SUPPLY LANE', 'good')
   }
 
