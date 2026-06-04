@@ -1,5 +1,6 @@
 import { useGame } from '../game/store'
 import { usePowerUp } from '../game/runtime'
+import { MAX_HEALTH } from '../game/constants'
 import type { PowerUpType, TankerRouteId } from '../game/types'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
 import { SmoothBar, SmoothScore } from './SmoothMeter'
@@ -28,7 +29,7 @@ export default function Hud() {
   const toasts = useGame((s) => s.toasts)
   const togglePause = useGame((s) => s.togglePause)
 
-  const slots = Math.max(3, hud.health)
+  const slots = MAX_HEALTH
   const hearts = Array.from({ length: slots }, (_, i) => i < hud.health)
   const danger =
     hud.incoming >= 2 || hud.health <= 1 || hud.interceptEvent || hud.banner.includes('MISSILE')
@@ -48,7 +49,7 @@ export default function Hud() {
             x{hud.multiplier} MULTIPLIER
           </div>
           <div className="hud-stat-line">
-            <span>SUPPLIES {hud.supplies}</span>
+            <span className="hud-supplies">SUPPLIES {hud.supplies}</span>
             <span className="hud-sep">|</span>
             <span>ENGINE {Math.round(hud.boost * 100)}%</span>
           </div>

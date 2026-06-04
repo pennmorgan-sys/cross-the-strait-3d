@@ -2,7 +2,13 @@
  * Per-mission surprise beats — scripted spawns, toasts, and HUD callouts.
  */
 import { CHAOS_LEVEL_ID } from './levels'
-import { runtime, progress, triggerInterceptEvent, triggerExplosionFlash } from './runtime'
+import {
+  runtime,
+  progress,
+  triggerInterceptEvent,
+  triggerExplosionFlash,
+  grantPowerUp,
+} from './runtime'
 import { useGame } from './store'
 import { sfx } from './systems/audio'
 
@@ -66,7 +72,7 @@ function spawnBombSalvo(n: number) {
 function supplyRain(count: number) {
   const pz = runtime.player.z
   for (let i = 0; i < count; i++) {
-    runtime.scriptedCrates.push({ x: (Math.random() - 0.5) * 8, z: pz - 18 - i * 3.5 })
+    runtime.scriptedCrates.push({ x: (Math.random() - 0.5) * 10, z: pz - 16 - i * 3 })
   }
 }
 
@@ -83,7 +89,7 @@ export function runOpeningSurprises() {
 
   if (lid === 1) {
     once('l1-supply', 0.35, () => {
-      supplyRain(5)
+      supplyRain(8)
       toast('CONVOY SUPPLY DROP', 'good')
     })
     once('l1-intercept', 2, () => {
@@ -94,10 +100,10 @@ export function runOpeningSurprises() {
     once('l1-missile', 4.2, () => {
       pulseFlare()
       toast('COASTAL LAUNCH — INCOMING', 'bad')
-      spawnBombSalvo(2)
+      spawnBombSalvo(1)
     })
     once('l1-gift', 7, () => {
-      supplyRain(6)
+      supplyRain(9)
       toast('ALLIED REINFORCEMENTS', 'good')
     })
   }
@@ -110,7 +116,7 @@ export function runOpeningSurprises() {
     })
     once('l2-ambush', 3.5, () => {
       pulseFlare()
-      spawnPatrolWave(3, 40)
+      spawnPatrolWave(2, 40)
       toast('FAST INTERCEPT — HARD STARBORD', 'bad')
     })
   }
@@ -118,7 +124,7 @@ export function runOpeningSurprises() {
   if (lid === 3) {
     once('l3-mines', 0.8, () => {
       setSurpriseBanner('MINE BELT — PULSE READY (E)')
-      spawnMineLine(5)
+      spawnMineLine(3)
       toast('MINEFIELD DETECTED', 'bad')
     })
     once('l3-oil', 4, () => {
@@ -131,11 +137,11 @@ export function runOpeningSurprises() {
   if (lid === 4) {
     once('l4-open', 0.6, () => {
       setSurpriseBanner('MISSILE CORRIDOR LIVE')
-      spawnBombSalvo(4)
+      spawnBombSalvo(3)
       toast('SALVO INBOUND', 'bad')
     })
     once('l4-emp', 5, () => {
-      runtime.powerUp = 'emp'
+      grantPowerUp('emp')
       toast('EW BURST — EMP READY (E)', 'good')
       pulseFlare()
     })
@@ -162,7 +168,7 @@ export function runOpeningSurprises() {
     })
     once('l6-flare', 3.8, () => {
       pulseFlare()
-      spawnPatrolWave(4, 36)
+      spawnPatrolWave(3, 36)
     })
   }
 
@@ -170,10 +176,10 @@ export function runOpeningSurprises() {
     once('l7-merge', 1.1, () => {
       setSurpriseBanner('TWIN CONVOY MERGE')
       toast('SECOND TANKER ON YOUR PORT SIDE', 'info')
-      supplyRain(4)
+      supplyRain(7)
     })
     once('l7-cross', 4.2, () => {
-      spawnBombSalvo(3)
+      spawnBombSalvo(2)
       spawnPatrolWave(2, 30)
       toast('CROSSFIRE — HOLD FORMATION', 'bad')
     })
@@ -193,9 +199,9 @@ export function runOpeningSurprises() {
   if (lid === CHAOS_LEVEL_ID) {
     once('chaos-open', 0.5, () => {
       setSurpriseBanner('CHAOS MODE — EVERYTHING AT ONCE')
-      spawnBombSalvo(5)
-      spawnPatrolWave(3, 25)
-      spawnMineLine(3)
+      spawnBombSalvo(3)
+      spawnPatrolWave(2, 25)
+      spawnMineLine(2)
     })
   }
 }
@@ -220,14 +226,14 @@ export function runProgressSurprises() {
 
   if (lid === 3 && p > 0.55 && tryFlag('l3-mid')) {
     runtime.minesweeperReady = true
-    runtime.powerUp = 'minesweeper'
+    grantPowerUp('minesweeper')
     toast('MINESWEEPER CHARGED', 'good')
     pulseFlare()
   }
 
   if (lid === 4 && p > 0.48 && tryFlag('l4-mid')) {
     setSurpriseBanner('DOUBLE TAP — SECOND WAVE')
-    spawnBombSalvo(5)
+    spawnBombSalvo(3)
     runtime.shake = 0.5
   }
 
@@ -237,19 +243,19 @@ export function runProgressSurprises() {
   }
 
   if (lid === 6 && p > 0.45 && tryFlag('l6-mid')) {
-    runtime.powerUp = 'radar'
+    grantPowerUp('radar')
     toast('RADAR BURST — SCAN ACTIVE', 'good')
   }
 
   if (lid === 7 && p > 0.62 && tryFlag('l7-mid')) {
-    spawnMineLine(4)
-    spawnPatrolWave(3, 34)
+    spawnMineLine(2)
+    spawnPatrolWave(2, 34)
     setSurpriseBanner('DUAL LANE MINEFIELD')
   }
 
   if ((lid === 8 || lid === CHAOS_LEVEL_ID) && p > 0.58 && tryFlag('l8-ambush')) {
     triggerInterceptEvent()
-    spawnPatrolWave(lid === CHAOS_LEVEL_ID ? 5 : 3, 28)
+    spawnPatrolWave(lid === CHAOS_LEVEL_ID ? 4 : 2, 28)
     toast('SURPRISE INTERCEPT', 'bad')
   }
 
@@ -258,9 +264,9 @@ export function runProgressSurprises() {
     const key = `chaos-b${beat}`
     if (beat > 0 && tryFlag(key)) {
       const roll = Math.random()
-      if (roll < 0.35) spawnBombSalvo(2 + Math.floor(Math.random() * 3))
+      if (roll < 0.35) spawnBombSalvo(1 + Math.floor(Math.random() * 2))
       else if (roll < 0.65) spawnPatrolWave(2, 20 + beat * 2)
-      else spawnMineLine(2 + (beat % 3))
+      else spawnMineLine(1 + (beat % 2))
       if (beat % 3 === 0) pulseFlare()
       toast(['HOT SKY', 'PATROL SWARM', 'MINE SNAP', 'FLARE BURST'][beat % 4], 'bad')
     }

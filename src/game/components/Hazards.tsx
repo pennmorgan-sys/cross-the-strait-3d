@@ -38,10 +38,10 @@ interface KindSpec {
 }
 
 const SPEC: Record<ObstacleKind, KindSpec> = {
-  mine: { w: 1.3, l: 1.3, clear: 2.3, dmg: 2 },
-  patrol: { w: 1.7, l: 2.6, clear: 2.4, dmg: 1 },
-  cargo: { w: 4.6, l: 7, clear: 7, dmg: 2 },
-  debris: { w: 1.1, l: 1.1, clear: 1.6, dmg: 1 },
+  mine: { w: 1.3, l: 1.3, clear: 2.5, dmg: 1 },
+  patrol: { w: 1.7, l: 2.6, clear: 2.5, dmg: 1 },
+  cargo: { w: 4.6, l: 7, clear: 7.2, dmg: 1 },
+  debris: { w: 1.1, l: 1.1, clear: 1.7, dmg: 1 },
   oil: { w: 3, l: 3, clear: -1, dmg: 0 },
 }
 
@@ -103,7 +103,7 @@ export default function Hazards() {
     const level = runtime.level
     const r = Math.random()
     if (level.cargo && r < 0.22) return 'cargo'
-    if (level.id >= 3 && r < 0.35) return 'oil'
+    if (level.id >= 3 && r < 0.26) return 'oil'
     if (Math.random() < level.mineBias) return 'mine'
     if (level.patrol && Math.random() < 0.5) return 'patrol'
     return 'debris'
@@ -118,11 +118,11 @@ export default function Hazards() {
     } else {
       spawn(kind, rand(-7, 7), z)
       // Higher levels add a second obstacle, leaving a gap to thread.
-      if (level.id >= 2 && Math.random() < 0.75) {
+      if (level.id >= 2 && Math.random() < 0.38) {
         const k2 = chooseKind()
         if (k2 !== 'cargo') spawn(k2, rand(-7, 7), z - rand(4, 9))
       }
-      if (level.id >= 4 && Math.random() < 0.65) {
+      if (level.id >= 4 && Math.random() < 0.28) {
         const k3 = chooseKind()
         if (k3 !== 'cargo') spawn(k3, rand(-7.5, 7.5), z - rand(10, 15))
       }
@@ -139,7 +139,7 @@ export default function Hazards() {
         seeded.current = true
         lastSpawnZ.current = runtime.player.z
         // Keep early scene dense in all runs.
-        spawn('debris', -3, runtime.player.z - 52)
+        spawn('debris', -3, runtime.player.z - 72)
       }
       while (runtime.scriptedHazards.length > 0) {
         const h = runtime.scriptedHazards.shift()!

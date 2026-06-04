@@ -1,7 +1,13 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { COLORS, SPAWN_AHEAD, DESPAWN_BEHIND } from '../constants'
+import {
+  COLORS,
+  SPAWN_AHEAD,
+  DESPAWN_BEHIND,
+  PICKUP_RADIUS,
+  POWERUP_SPAWN_CHANCE,
+} from '../constants'
 import {
   runtime,
   isSlow,
@@ -10,22 +16,22 @@ import {
   setPowerUp,
 } from '../runtime'
 import { quickWaveAt } from '../waves'
-import { clamp, damp, rand, pick } from '../systems/math'
+import { clamp, damp, rand } from '../systems/math'
 import { getCaps, perfState } from '../systems/performance'
+import { glowTexture } from '../systems/glow'
 import type { PowerUpType } from '../types'
 
-const POOL = 28
-const PICK_RADIUS = 3.8
+const POOL = 32
 
-const POWER_TYPES: PowerUpType[] = [
-  'shield',
-  'repair',
-  'turbo',
-  'slow',
-  'magnet',
-  'radar',
-  'minesweeper',
-  'emp',
+const POWER_WEIGHTS: [PowerUpType, number][] = [
+  ['shield', 4],
+  ['repair', 4],
+  ['magnet', 3],
+  ['turbo', 3],
+  ['radar', 2.5],
+  ['minesweeper', 2],
+  ['slow', 2],
+  ['emp', 1.5],
 ]
 
 const POWER_COLOR: Record<PowerUpType, string> = {
@@ -37,6 +43,15 @@ const POWER_COLOR: Record<PowerUpType, string> = {
   radar: '#16a34a',
   minesweeper: '#22d3ee',
   emp: '#f59e0b',
+}
+
+function pickPowerType(): PowerUpType {
+  let roll = Math.random() * POWER_WEIGHTS.reduce((s, [, w]) => s + w, 0)
+  for (const [type, w] of POWER_WEIGHTS) {
+    roll -= w
+    if (roll <= 0) return type
+  }
+  return 'shield'
 }
 
 interface Pickup {
@@ -73,27 +88,41 @@ export default function Pickups() {
     return n
   }
 
-  function spawn(kind: 'supply' | 'power', x: number, z: number) {
+  function tintOrb(idx: number, type: PowerUpType) {
+    const c = new THREE.Color(POWER_COLOR[type])
+    orb.current[idx]?.traverse((o) => {
+      const m = (o as THREE.Mesh).material as
+        | (THREE.Material & { color?: THREE.Color; emissive?: THREE.Color })
+        | undefined
+      if (m?.color) m.color.copy(c)
+      if (m?.emissive) m.emissive.copy(c)
+    })
+  }
+
+  function spawn(
+    kind: 'supply' | 'power',
+    x: number,
+    z: number,
+    powerType?: PowerUpType,
+  ) {
     if (activeCount() >= getCaps().maxSupplies) return
     const p = data.current.find((d) => d.state === 'idle')
     if (!p) return
     p.state = 'active'
     p.kind = kind
-    p.type = pick(POWER_TYPES)
+    p.type = kind === 'power' ? (powerType ?? pickPowerType()) : 'shield'
     p.x = clamp(x, -8, 8)
     p.z = z
     p.phase = Math.random() * 10
-    const idx = data.current.indexOf(p)
-    if (kind === 'power' && orb.current[idx]) {
-      const c = new THREE.Color(POWER_COLOR[p.type])
-      orb.current[idx]!.traverse((o) => {
-        const m = (o as THREE.Mesh).material as
-          | (THREE.Material & { color?: THREE.Color; emissive?: THREE.Color })
-          | undefined
-        if (m?.color) m.color.copy(c)
-        if (m?.emissive) m.emissive.copy(c)
-      })
-    }
+    if (kind === 'power') tintOrb(data.current.indexOf(p), p.type)
+  }
+
+  function spawnSupplyTrail(lane: number, baseZ: number) {
+    spawn('supply', lane, baseZ)
+    spawn('supply', lane + rand(-0.8, 0.8), baseZ - 3.5)
+    spawn('supply', lane, baseZ - 7)
+    if (Math.random() < 0.9) spawn('supply', lane, baseZ - 10.5)
+    if (Math.random() < 0.75) spawn('supply', lane, baseZ - 14)
   }
 
   useFrame((state, rawDt) => {
@@ -106,27 +135,29 @@ export default function Pickups() {
       if (!seeded.current) {
         seeded.current = true
         lastSpawnZ.current = runtime.player.z
-        spawn('supply', -2, runtime.player.z - 24)
-        spawn('supply', 0, runtime.player.z - 28)
-        spawn('supply', 2, runtime.player.z - 32)
-        spawn('power', 4, runtime.player.z - 52)
+        spawnSupplyTrail(-2.5, runtime.player.z - 22)
+        spawnSupplyTrail(2.5, runtime.player.z - 30)
+        spawn('power', 0, runtime.player.z - 48, 'shield')
+        spawn('power', 5, runtime.player.z - 56, 'repair')
       }
       while (runtime.scriptedCrates.length > 0) {
         const c = runtime.scriptedCrates.shift()!
         spawn('supply', c.x, c.z)
       }
-      if (runtime.player.z < lastSpawnZ.current - rand(9, 17)) {
+      if (runtime.player.z < lastSpawnZ.current - rand(6, 11)) {
         lastSpawnZ.current = runtime.player.z
-        const isPower = Math.random() < 0.25
-        if (isPower) spawn('power', rand(-7, 7), runtime.player.z - SPAWN_AHEAD)
-        else {
-          // coin-like crate trails
-          const lane = rand(-6, 6)
-          const base = runtime.player.z - SPAWN_AHEAD
-          spawn('supply', lane, base)
-          spawn('supply', lane, base - 4)
-          if (Math.random() < 0.8) spawn('supply', lane, base - 8)
-          if (Math.random() < 0.65) spawn('supply', lane, base - 12)
+        const base = runtime.player.z - SPAWN_AHEAD
+        const lane = rand(-6, 6)
+        if (Math.random() < POWERUP_SPAWN_CHANCE) {
+          spawn('power', rand(-7, 7), base, pickPowerType())
+          if (Math.random() < 0.35) {
+            spawn('power', rand(-5, 5), base - rand(5, 9), pickPowerType())
+          }
+        } else {
+          spawnSupplyTrail(lane, base)
+        }
+        if (Math.random() < 0.42) {
+          spawn('supply', rand(-7, 7), base - rand(3, 8))
         }
       }
     } else if (!runtime.simActive && !runtime.running) {
@@ -134,6 +165,8 @@ export default function Pickups() {
     }
 
     const magnet = magnetActive()
+    const caps = getCaps()
+    const lightMul = caps.pickupLights ? 1 : 0.65
 
     for (let i = 0; i < POOL; i++) {
       const p = data.current[i]
@@ -149,47 +182,52 @@ export default function Pickups() {
       }
       g.visible = true
 
-      // Magnet pulls supply crates toward the player.
       if (magnet && isSupply && active) {
         const d = Math.hypot(runtime.player.x - p.x, runtime.player.z - p.z)
-        if (d < 14) {
-          p.x = THREE.MathUtils.lerp(p.x, runtime.player.x, damp(4, dt))
-          p.z = THREE.MathUtils.lerp(p.z, runtime.player.z, damp(4, dt))
+        if (d < 18) {
+          p.x = THREE.MathUtils.lerp(p.x, runtime.player.x, damp(5, dt))
+          p.z = THREE.MathUtils.lerp(p.z, runtime.player.z, damp(5, dt))
         }
       }
 
       const surf = quickWaveAt(p.x, p.z, t)
-      const bob = Math.sin(t * 2 + p.phase) * 0.28
-      g.position.set(p.x, surf + 1.35 + bob, p.z)
-      g.rotation.y = p.phase + t * 1.5
+      const bob = Math.sin(t * 2.2 + p.phase) * 0.35
+      g.position.set(p.x, surf + 1.55 + bob, p.z)
+      g.rotation.y = p.phase + t * 1.4
 
       const pulse = 0.5 + Math.sin(t * 5 + p.phase) * 0.5
       const marker = g.children[0] as THREE.Mesh | undefined
       if (marker) {
-        marker.position.y = surf + 0.14
+        marker.position.y = surf + 0.12
         marker.rotation.x = -Math.PI / 2
-        marker.scale.setScalar(1 + pulse * 0.22)
+        marker.scale.setScalar(1.15 + pulse * 0.35)
         const mm = marker.material as THREE.MeshBasicMaterial
-        mm.color.set(isSupply ? COLORS.supplyGold : POWER_COLOR[p.type])
-        mm.opacity = 0.55 + pulse * 0.35
+        mm.color.set(isSupply ? '#fde047' : POWER_COLOR[p.type])
+        mm.opacity = 0.72 + pulse * 0.28
       }
 
       if (isSupply) {
         const box = crate.current[i]?.children[0] as THREE.Mesh | undefined
         const m = box?.material as THREE.MeshStandardMaterial | undefined
-        if (m) m.emissiveIntensity = 0.55 + pulse * 0.95
-        const beam = crate.current[i]?.children[4] as THREE.Mesh | undefined
+        if (m) m.emissiveIntensity = 0.85 + pulse * 1.1
+        const beam = crate.current[i]?.children[5] as THREE.Mesh | undefined
         if (beam) {
-          beam.scale.set(1.15, 1 + pulse * 0.65, 1.15)
-          ;(beam.material as THREE.MeshBasicMaterial).opacity = 0.28 + pulse * 0.35
+          beam.scale.set(1.2, 1.1 + pulse * 0.85, 1.2)
+          ;(beam.material as THREE.MeshBasicMaterial).opacity = 0.42 + pulse * 0.4
         }
-        const ring = crate.current[i]?.children[5] as THREE.Mesh | undefined
-        if (ring) ring.scale.setScalar(1.1 + pulse * 0.25)
+        const ring = crate.current[i]?.children[6] as THREE.Mesh | undefined
+        if (ring) ring.scale.setScalar(1.2 + pulse * 0.35)
+        const beacon = crate.current[i]?.children[7] as THREE.Sprite | undefined
+        if (beacon) {
+          beacon.position.y = 3.4 + pulse * 0.5
+          beacon.scale.setScalar(5.5 + pulse * 2.2)
+          ;(beacon.material as THREE.SpriteMaterial).opacity = 0.75 + pulse * 0.25
+        }
       } else {
-        const halo = orb.current[i]?.children[3] as THREE.Mesh | undefined
-        if (halo) halo.scale.setScalar(1.15 + pulse * 0.45)
-        const ring = orb.current[i]?.children[4] as THREE.Mesh | undefined
-        if (ring) ring.scale.setScalar(1 + pulse * 0.3)
+        const halo = orb.current[i]?.children[4] as THREE.Mesh | undefined
+        if (halo) halo.scale.setScalar(1.25 + pulse * 0.55)
+        const ring = orb.current[i]?.children[5] as THREE.Mesh | undefined
+        if (ring) ring.scale.setScalar(1.1 + pulse * 0.35)
       }
 
       if (p.z > runtime.player.z + DESPAWN_BEHIND) {
@@ -199,23 +237,22 @@ export default function Pickups() {
 
       if (!active) continue
 
-      const caps = getCaps()
-      if (crate.current[i]) {
-        const light = crate.current[i]!.children.find(
-          (c) => c instanceof THREE.PointLight,
-        ) as THREE.PointLight | undefined
-        if (light) light.visible = caps.pickupLights
+      const setLight = (root: THREE.Group | null, color: string, intensity: number) => {
+        const light = root?.children.find((c) => c instanceof THREE.PointLight) as
+          | THREE.PointLight
+          | undefined
+        if (light) {
+          light.visible = true
+          light.color.set(color)
+          light.intensity = intensity * lightMul
+        }
       }
-      if (orb.current[i]) {
-        const light = orb.current[i]!.children.find(
-          (c) => c instanceof THREE.PointLight,
-        ) as THREE.PointLight | undefined
-        if (light) light.visible = caps.pickupLights
-      }
+      setLight(crate.current[i], COLORS.supplyGold, 3.2)
+      setLight(orb.current[i], POWER_COLOR[p.type], 3)
 
       const dx = runtime.player.x - p.x
       const dz = runtime.player.z - p.z
-      if (Math.hypot(dx, dz) < PICK_RADIUS) {
+      if (Math.hypot(dx, dz) < PICKUP_RADIUS) {
         p.state = 'idle'
         if (isSupply) collectSupply()
         else setPowerUp(p.type)
@@ -234,18 +271,16 @@ export default function Pickups() {
           }}
           visible={false}
         >
-          {/* Water-level marker — easy to spot from chase cam */}
           <mesh>
-            <ringGeometry args={[1.35, 1.65, 32]} />
+            <ringGeometry args={[1.65, 2.05, 36]} />
             <meshBasicMaterial
-              color={COLORS.supplyGold}
+              color="#fde047"
               transparent
-              opacity={0.7}
+              opacity={0.85}
               depthWrite={false}
             />
           </mesh>
 
-          {/* Supply crate */}
           <group
             ref={(el) => {
               crate.current[i] = el
@@ -253,39 +288,52 @@ export default function Pickups() {
             visible={false}
           >
             <mesh>
-              <boxGeometry args={[1.55, 1.55, 1.55]} />
+              <boxGeometry args={[2.05, 2.05, 2.05]} />
               <meshStandardMaterial
-                color={COLORS.supplyGold}
-                emissive={COLORS.supplyGold}
-                emissiveIntensity={0.75}
-                metalness={0.35}
-                roughness={0.35}
+                color="#facc15"
+                emissive="#fde047"
+                emissiveIntensity={1.1}
+                metalness={0.3}
+                roughness={0.28}
               />
             </mesh>
             <mesh>
-              <boxGeometry args={[1.65, 0.42, 0.42]} />
-              <meshStandardMaterial color="#ca8a04" emissive="#eab308" emissiveIntensity={0.25} />
+              <boxGeometry args={[2.2, 0.5, 0.5]} />
+              <meshStandardMaterial color="#eab308" emissive="#fde047" emissiveIntensity={0.55} />
             </mesh>
             <mesh rotation={[0, Math.PI / 2, 0]}>
-              <boxGeometry args={[1.65, 0.42, 0.42]} />
-              <meshStandardMaterial color="#ca8a04" emissive="#eab308" emissiveIntensity={0.25} />
+              <boxGeometry args={[2.2, 0.5, 0.5]} />
+              <meshStandardMaterial color="#eab308" emissive="#fde047" emissiveIntensity={0.55} />
             </mesh>
-            <mesh position={[0, 0.95, 0]}>
-              <boxGeometry args={[0.5, 0.5, 0.5]} />
-              <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={1.2} />
+            <mesh position={[0, 1.2, 0]}>
+              <boxGeometry args={[0.65, 0.65, 0.65]} />
+              <meshStandardMaterial color="#fffbeb" emissive="#fef08a" emissiveIntensity={1.6} />
             </mesh>
-            <mesh position={[0, 3.2, 0]}>
-              <cylinderGeometry args={[0.28, 1.1, 5.2, 12]} />
-              <meshBasicMaterial color={COLORS.supplyGold} transparent opacity={0.38} depthWrite={false} />
+            <mesh position={[0, -0.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[1.35, 1.75, 36]} />
+              <meshBasicMaterial color="#fbbf24" transparent opacity={0.95} depthWrite={false} />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.85, 0]}>
-              <ringGeometry args={[1, 1.28, 28]} />
-              <meshBasicMaterial color="#fde047" transparent opacity={0.85} depthWrite={false} />
+            <mesh position={[0, 3.6, 0]}>
+              <cylinderGeometry args={[0.35, 1.35, 6.5, 14]} />
+              <meshBasicMaterial color="#fde047" transparent opacity={0.5} depthWrite={false} />
             </mesh>
-            <pointLight color={COLORS.supplyGold} intensity={2.2} distance={14} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 1.05, 0]}>
+              <ringGeometry args={[1.25, 1.65, 36]} />
+              <meshBasicMaterial color="#fef08a" transparent opacity={0.95} depthWrite={false} />
+            </mesh>
+            <sprite position={[0, 3.2, 0]} scale={[4, 4, 1]}>
+              <spriteMaterial
+                map={glowTexture()}
+                color="#fde047"
+                transparent
+                opacity={0.9}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </sprite>
+            <pointLight color="#fde047" intensity={3.2} distance={22} />
           </group>
 
-          {/* Power-up orb (color set on spawn) */}
           <group
             ref={(el) => {
               orb.current[i] = el
@@ -293,32 +341,36 @@ export default function Pickups() {
             visible={false}
           >
             <mesh>
-              <icosahedronGeometry args={[0.72, 0]} />
+              <icosahedronGeometry args={[0.95, 0]} />
               <meshStandardMaterial
                 color="#3b82f6"
                 emissive="#3b82f6"
-                emissiveIntensity={1.35}
+                emissiveIntensity={1.6}
                 metalness={0.45}
-                roughness={0.15}
+                roughness={0.12}
               />
             </mesh>
             <mesh rotation={[Math.PI / 2.4, 0, 0]}>
-              <torusGeometry args={[1.05, 0.1, 8, 28]} />
-              <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1.6} />
+              <torusGeometry args={[1.35, 0.14, 8, 32]} />
+              <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1.8} />
             </mesh>
             <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[1.25, 0.06, 6, 32]} />
-              <meshBasicMaterial color="#93c5fd" transparent opacity={0.55} depthWrite={false} />
+              <torusGeometry args={[1.55, 0.08, 6, 36]} />
+              <meshBasicMaterial color="#93c5fd" transparent opacity={0.65} depthWrite={false} />
             </mesh>
             <mesh>
-              <sphereGeometry args={[1.05, 14, 14]} />
-              <meshBasicMaterial color="#3b82f6" transparent opacity={0.32} depthWrite={false} />
+              <sphereGeometry args={[1.35, 16, 16]} />
+              <meshBasicMaterial color="#3b82f6" transparent opacity={0.38} depthWrite={false} />
             </mesh>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.55, 0]}>
-              <ringGeometry args={[1.1, 1.38, 32]} />
-              <meshBasicMaterial color="#60a5fa" transparent opacity={0.75} depthWrite={false} />
+              <ringGeometry args={[1.35, 1.7, 36]} />
+              <meshBasicMaterial color="#60a5fa" transparent opacity={0.85} depthWrite={false} />
             </mesh>
-            <pointLight color="#60a5fa" intensity={2.5} distance={16} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+              <ringGeometry args={[1.5, 1.9, 36]} />
+              <meshBasicMaterial color="#93c5fd" transparent opacity={0.55} depthWrite={false} />
+            </mesh>
+            <pointLight color="#60a5fa" intensity={3} distance={20} />
           </group>
         </group>
       ))}

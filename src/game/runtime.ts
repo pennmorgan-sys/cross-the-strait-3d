@@ -214,7 +214,7 @@ export function collectSupply() {
   runtime.stats.supplies++
   addScore(100)
   addCombo(1)
-  runtime.boost = clamp(runtime.boost + 0.25, 0, 1)
+  runtime.boost = clamp(runtime.boost + 0.35, 0, 1)
   if (runtime.level.id >= 3) runtime.minesweeperReady = now() >= runtime.minesweeperCooldownUntil
   useGame.getState().pushToast('+100 SUPPLY', 'good')
   sfx.pickup()
@@ -244,28 +244,8 @@ export function damage(amount = 1): boolean {
   return true
 }
 
-export function setPowerUp(type: PowerUpType) {
-  runtime.powerUp = type
-  useGame.getState().pushToast(`PICKED UP ${type.toUpperCase()}`, 'info')
-  sfx.pickup()
-}
-
-export function triggerMinesweeperPulse() {
-  const t = now()
-  if (t < runtime.minesweeperCooldownUntil) return false
-  runtime.minesweeperPulseUntil = t + 2200
-  runtime.minesweeperCooldownUntil = t + 4500
-  useGame.getState().pushToast('MINESWEEPER PULSE', 'good')
-  return true
-}
-
-export function usePowerUp() {
-  const type = runtime.powerUp
-  if (!type) {
-    if (runtime.minesweeperReady) triggerMinesweeperPulse()
-    return
-  }
-  runtime.powerUp = null
+/** Apply a power-up immediately (pickup or tool button). */
+export function grantPowerUp(type: PowerUpType) {
   const t = now()
   switch (type) {
     case 'shield':
@@ -273,8 +253,8 @@ export function usePowerUp() {
       useGame.getState().pushToast('SHIELD UP', 'good')
       break
     case 'repair':
-      runtime.health = clamp(runtime.health + 1, 0, MAX_HEALTH)
-      useGame.getState().pushToast('REPAIRED +1', 'good')
+      runtime.health = clamp(runtime.health + 2, 0, MAX_HEALTH)
+      useGame.getState().pushToast('REPAIRED +2', 'good')
       break
     case 'turbo':
       runtime.boost = 1
@@ -294,13 +274,40 @@ export function usePowerUp() {
       break
     case 'minesweeper':
       triggerMinesweeperPulse()
-      break
+      sfx.pickup()
+      flushHud()
+      return
     case 'emp':
       runtime.interceptEvent = false
       runtime.interceptTimer = 0
       useGame.getState().pushToast('EMP — INTERCEPTS STUNNED', 'good')
       break
   }
+  sfx.pickup()
+  flushHud()
+}
+
+export function setPowerUp(type: PowerUpType) {
+  runtime.powerUp = null
+  grantPowerUp(type)
+}
+
+export function triggerMinesweeperPulse() {
+  const t = now()
+  if (t < runtime.minesweeperCooldownUntil) return false
+  runtime.minesweeperPulseUntil = t + 2200
+  runtime.minesweeperCooldownUntil = t + 4500
+  useGame.getState().pushToast('MINESWEEPER PULSE', 'good')
+  return true
+}
+
+export function usePowerUp() {
+  if (runtime.powerUp) {
+    grantPowerUp(runtime.powerUp)
+    runtime.powerUp = null
+    return
+  }
+  if (runtime.minesweeperReady) triggerMinesweeperPulse()
 }
 
 export function triggerExplosionFlash() {

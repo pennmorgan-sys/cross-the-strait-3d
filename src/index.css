@@ -1203,6 +1203,13 @@ body,
 .hud-sep {
   opacity: 0.35;
 }
+.hud-supplies {
+  color: #fde047;
+  text-shadow:
+    0 0 10px rgba(250, 204, 21, 0.75),
+    0 0 22px rgba(250, 204, 21, 0.35);
+  letter-spacing: 0.04em;
+}
 .hud-card-right {
   text-align: right;
 }
