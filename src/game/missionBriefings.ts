@@ -1,5 +1,5 @@
 import type { TankerRouteId } from './types'
-import { CHAOS_LEVEL_ID, ENDLESS_LEVEL_ID } from './constants'
+import { CHAOS_LEVEL_ID, DELIVERY_LEVEL_ID, ENDLESS_LEVEL_ID } from './constants'
 
 export interface MissionBriefing {
   levelId: number
@@ -131,6 +131,18 @@ export const MISSION_BRIEFINGS: MissionBriefing[] = [
     threat: 'Speed and threat escalate the farther you run.',
     objective: 'Beat your personal best before the hull breaks.',
     surpriseHint: 'Threat tier rises every few miles — supplies stay sparse.',
+  },
+  {
+    levelId: DELIVERY_LEVEL_ID,
+    codename: 'OP WORLD BARREL',
+    title: 'World Delivery',
+    routeLabel: 'SELECT DESTINATION',
+    tankerRoute: 'china',
+    commander: 'Pick a country on the delivery map. Hormuz is only the first leg.',
+    mission: 'Deliver oil to the chosen port.',
+    threat: 'Peaceful delivery — no combat hazards in the Strait.',
+    objective: 'Reach safe water and complete the open-ocean leg to your port.',
+    surpriseHint: 'Match the 3D coasts to the NAV MAP (Iran west, Oman east).',
   },
   {
     levelId: CHAOS_LEVEL_ID,

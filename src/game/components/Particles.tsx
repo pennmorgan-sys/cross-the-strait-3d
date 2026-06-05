@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { COLORS } from '../constants'
+import { COLORS, MAX_ACTIVE } from '../constants'
 import { runtime } from '../runtime'
 import { rand } from '../systems/math'
 import {
@@ -10,7 +10,7 @@ import {
   perfState,
 } from '../systems/performance'
 
-const POOL = 160
+const POOL = MAX_ACTIVE.PARTICLES
 
 export default function Particles() {
   const geom = useRef<THREE.BufferGeometry>(null)
@@ -52,10 +52,18 @@ export default function Particles() {
         emit(34, 1.6)
       }
       emitCd.current -= dt
-      const interval = runtime.boosting ? 0.07 : 0.11
+      const interval =
+        perfState.tier === 'mobile' ? 0.14 : perfState.tier === 'balanced' ? 0.1 : 0.08
+      const burst = runtime.boosting
+        ? perfState.tier === 'mobile'
+          ? 2
+          : 3
+        : perfState.tier === 'mobile'
+          ? 1
+          : 2
       if (emitCd.current <= 0) {
         emitCd.current = interval
-        emit(runtime.boosting ? 3 : 2, runtime.boosting ? 0.8 : 0.5)
+        emit(burst, runtime.boosting ? 0.8 : 0.5)
       }
     }
 

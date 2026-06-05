@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { COLORS } from '../constants'
@@ -16,6 +16,8 @@ import {
   RouteBeaconGlow,
 } from './StraitVisualFX'
 import { getCaps, perfState } from '../systems/performance'
+import { isPeacefulLevel } from '../levels'
+import StraitMapLabels from './StraitMapLabels'
 
 const playing = () => runtime.simActive
 
@@ -40,7 +42,7 @@ function SkyDome({
     if (ref.current) ref.current.position.copy(runtime.player)
   })
   const [segW, segH] =
-    perfState.tier === 'high' ? [40, 24] : perfState.tier === 'normal' ? [28, 16] : [20, 12]
+    perfState.tier === 'high' ? [48, 28] : perfState.tier === 'balanced' ? [32, 20] : [22, 14]
 
   return (
     <mesh ref={ref}>
@@ -68,29 +70,68 @@ function SkyDome({
 
 function RouteLane() {
   const ref = useRef<THREE.Group>(null)
+  const count =
+    perfState.tier === 'mobile' ? 4 : getCaps().maxSkyMissiles >= 10 ? 16 : 8
+  const seg = perfState.tier === 'mobile' ? 6 : 10
+  const geo = useMemo(() => new THREE.SphereGeometry(0.28, seg, seg), [seg])
+  const matRed = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: COLORS.warningRed,
+        emissive: '#ef4444',
+        emissiveIntensity: 0.45,
+        metalness: 0.2,
+      }),
+    [],
+  )
+  const matWhite = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: '#f8fafc',
+        emissive: '#e2e8f0',
+        emissiveIntensity: 0.45,
+        metalness: 0.2,
+      }),
+    [],
+  )
+  const redRef = useRef<THREE.InstancedMesh>(null)
+  const whiteRef = useRef<THREE.InstancedMesh>(null)
+  const matrix = useMemo(() => new THREE.Matrix4(), [])
+  const pos = useMemo(() => new THREE.Vector3(), [])
+  const quat = useMemo(() => new THREE.Quaternion(), [])
+  const scl = useMemo(() => new THREE.Vector3(1, 1, 1), [])
+
+  useLayoutEffect(() => {
+    let ri = 0
+    let wi = 0
+    for (let i = 0; i < count; i++) {
+      pos.set(i % 2 === 0 ? -1.5 : 1.5, 0.3, -i * 14)
+      matrix.compose(pos, quat, scl)
+      if (i % 2 === 0) redRef.current?.setMatrixAt(ri++, matrix)
+      else whiteRef.current?.setMatrixAt(wi++, matrix)
+    }
+    if (redRef.current) {
+      redRef.current.count = ri
+      redRef.current.instanceMatrix.needsUpdate = true
+    }
+    if (whiteRef.current) {
+      whiteRef.current.count = wi
+      whiteRef.current.instanceMatrix.needsUpdate = true
+    }
+  }, [count, matrix, pos, quat, scl])
+
   useFrame(() => {
     if (ref.current) ref.current.position.z = runtime.player.z
   })
+
+  const redN = Math.ceil(count / 2)
+  const whiteN = Math.floor(count / 2)
+
   return (
     <group ref={ref}>
       <RouteBeaconGlow />
-      {Array.from(
-        {
-          length:
-            perfState.tier === 'mobile' ? 4 : getCaps().maxSkyMissiles >= 10 ? 16 : 8,
-        },
-        (_, i) => (
-          <mesh key={i} position={[i % 2 === 0 ? -1.5 : 1.5, 0.3, -i * 14]}>
-            <sphereGeometry args={[0.28, perfState.tier === 'mobile' ? 6 : 10, 6]} />
-            <meshStandardMaterial
-              color={i % 2 === 0 ? COLORS.warningRed : '#f8fafc'}
-              emissive={i % 2 === 0 ? '#ef4444' : '#e2e8f0'}
-              emissiveIntensity={0.45}
-              metalness={0.2}
-            />
-          </mesh>
-        ),
-      )}
+      <instancedMesh ref={redRef} args={[geo, matRed, redN]} />
+      <instancedMesh ref={whiteRef} args={[geo, matWhite, whiteN]} />
     </group>
   )
 }
@@ -104,10 +145,7 @@ function MissileLauncher({ pos }: { pos: [number, number, number] }) {
     timer.current -= delta
     if (timer.current <= 0) {
       timer.current = 3.5 + Math.random() * 5
-      if (runtime.level.id >= 2) {
-        flash.current = 1
-        if (runtime.level.id >= 4) runtime.incoming = Math.min(2.5, runtime.incoming + 0.55)
-      }
+      flash.current = 1
     }
     flash.current = Math.max(0, flash.current - delta * 2.5)
   })
@@ -273,26 +311,30 @@ export default function StraitScenery({
   nightMode: boolean
 }) {
   const mobile = perfState.tier === 'mobile'
-  const chaos = level.id >= 99 ? 1.35 : level.id >= 4 ? 1.1 : level.id >= 2 ? 0.7 : 0.4
+  const peaceful = isPeacefulLevel(level)
+  const combatFx = !peaceful
   const caps = getCaps()
-  const skyMissiles = Math.min(
-    Math.floor(5 + chaos * 5),
-    caps.maxSkyMissiles,
-  )
   return (
     <>
       <SkyDome sky={sky} nightMode={nightMode} />
       {nightMode && !mobile ? <NightSky /> : !nightMode ? <SunGlare /> : null}
-      <StraitShores nightMode={nightMode} levelId={level.id} />
+      <StraitShores nightMode={nightMode} peaceful={peaceful} />
+      <StraitMapLabels peaceful={peaceful} />
       <RouteLane />
-      {!mobile && <Launchers />}
+      {combatFx && !mobile && <Launchers />}
       <StraitTankers levelId={level.id} />
-      <DistantSmoke count={caps.maxDistantSmoke} />
-      {!mobile && <RefineryGlow level={level} />}
-      {!mobile && <SurpriseFlares />}
-      {level.searchlights && !mobile && <Searchlights count={caps.maxSearchlights} />}
-      {level.id >= 4 && !mobile && <JetSilhouettes count={caps.maxJets} />}
-      <SkyMissilesEnhanced count={skyMissiles} />
+      {combatFx && <DistantSmoke count={caps.maxDistantSmoke} />}
+      {combatFx && !mobile && <RefineryGlow level={level} />}
+      {combatFx && !mobile && <SurpriseFlares />}
+      {combatFx && level.searchlights && !mobile && (
+        <Searchlights count={caps.maxSearchlights} />
+      )}
+      {combatFx && caps.maxJets > 0 && <JetSilhouettes count={caps.maxJets} />}
+      {combatFx && (
+        <SkyMissilesEnhanced
+          count={Math.min(caps.maxSkyMissiles, caps.maxMissileTrails)}
+        />
+      )}
       <MinesweeperPulse />
       {radarActive() && (
         <mesh position={[runtime.player.x, 0.2, runtime.player.z - 5]} rotation={[-Math.PI / 2, 0, 0]}>

@@ -26,6 +26,8 @@ export const TOTAL_LEVELS = 8
 export const CHAOS_LEVEL_ID = 99
 /** Endless high-score run — Strait of Hormuz */
 export const ENDLESS_LEVEL_ID = 100
+/** World Delivery — pick country, complete Hormuz escort */
+export const DELIVERY_LEVEL_ID = 101
 
 export const STEER_SPEED = 15 // lateral acceleration response
 export const MAX_LATERAL = 12
@@ -45,6 +47,9 @@ export const BOMB_BLAST_RADIUS = 6
 export const EXPLOSION_DURATION = 0.8
 export const NEAR_MISS_DIST = 2.6
 
+/** Scales random mine rolls from level.mineBias (publish tuning — fewer mines) */
+export const MINE_SPAWN_MULT = 0.52
+
 export const PICKUP_RADIUS = 4.2
 export const POWERUP_SPAWN_CHANCE = 0.26
 
@@ -57,10 +62,10 @@ export const SPECIAL_SUPPLY_BURST_MAX = 8
 export const MAX_ACTIVE = {
   BOMBS: 8,
   EXPLOSIONS: 6,
-  SMOKE: 80,
-  MISSILE_TRAILS: 40,
+  SMOKE: 70,
+  MISSILE_TRAILS: 35,
   SUPPLIES: 8,
-  HAZARDS: 45,
+  HAZARDS: 40,
   PARTICLES: 160,
   SKY_MISSILES: 12,
 } as const

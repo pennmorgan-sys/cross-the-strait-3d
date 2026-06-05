@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { LevelConfig } from '../types'
 import { runtime, skyFlash } from '../runtime'
-import { getCaps } from '../systems/performance'
+import { getCaps, perfState } from '../systems/performance'
 
 export default function Lighting({
   level,
@@ -42,16 +42,19 @@ export default function Lighting({
   if (nightMode) {
     return (
       <>
-        <hemisphereLight args={['#1e3a5f', '#050810', 0.55]} />
+        <hemisphereLight args={['#2a4a72', '#050810', 0.62]} />
         <directionalLight
           ref={sunRef}
-          intensity={0.65}
+          intensity={0.78}
           color="#a5b8ff"
           {...shadowProps}
         >
           <object3D attach="target" position={[0, 0, -30]} />
         </directionalLight>
-        <ambientLight intensity={0.32} color="#121c32" />
+        <ambientLight intensity={0.42} color="#1a2840" />
+        {perfState.tier !== 'mobile' && (
+          <pointLight position={[0, 12, -20]} intensity={0.35} color="#38bdf8" distance={90} />
+        )}
         <pointLight ref={flashRef} color="#F97316" distance={90} decay={1.4} intensity={0} />
       </>
     )
@@ -60,16 +63,19 @@ export default function Lighting({
   const haze = level.id >= 4 ? 1.15 : 1
   return (
     <>
-      <hemisphereLight args={['#b8e4f8', '#c89f65', 0.9 * haze]} />
+      <hemisphereLight args={['#c8eeff', '#d4a86a', 0.95 * haze]} />
       <directionalLight
         ref={sunRef}
-        intensity={1.65 * haze}
-        color="#fff4e6"
+        intensity={1.85 * haze}
+        color="#fff8eb"
         {...shadowProps}
       >
         <object3D attach="target" position={[0, 0, -30]} />
       </directionalLight>
-      <ambientLight intensity={0.48} color="#e8f4fc" />
+      <ambientLight intensity={perfState.tier === 'mobile' ? 0.58 : 0.52} color="#e8f4fc" />
+      {perfState.tier !== 'mobile' && (
+        <pointLight position={[0, 14, -25]} intensity={0.28} color="#7dd3fc" distance={100} />
+      )}
       <pointLight ref={flashRef} color="#F97316" distance={90} decay={1.4} intensity={0} />
     </>
   )

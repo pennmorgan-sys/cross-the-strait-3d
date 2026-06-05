@@ -4,6 +4,7 @@ import { MAX_HEALTH } from '../game/constants'
 import type { PowerUpType, TankerRouteId } from '../game/types'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
 import { SmoothBar, SmoothScore } from './SmoothMeter'
+import Minimap from './Minimap'
 
 const POWER_COLOR: Record<PowerUpType, string> = {
   shield: '#3b82f6',
@@ -38,7 +39,7 @@ export default function Hud() {
     hud.minesweeperReady || hud.powerUp === 'minesweeper'
 
   return (
-    <div className="hud">
+    <div className="hud" aria-live="polite">
       <div className="fx vignette hud-vignette" />
       <div className={`fx danger${danger ? ' on' : ''}`} />
 
@@ -77,16 +78,20 @@ export default function Hud() {
             ))}
           </div>
           {hud.shield && <div className="shield-ring">SHIELD ACTIVE</div>}
-          <button type="button" className="btn-hud-pause" onClick={togglePause}>
+          <button type="button" className="btn-hud-pause btn-hud-pause-desktop" onClick={togglePause}>
             PAUSE
           </button>
         </div>
       </div>
 
+      <Minimap />
+
       <div className="hud-orient">
         <span>IRAN COAST</span>
         <span className="hud-orient-mid">STRAIT OF HORMUZ</span>
-        <span>OMAN COAST</span>
+        <span>
+          {hud.deliveryCountry ? `${hud.deliveryFlag ?? ''} ${hud.deliveryCountry}` : 'OMAN COAST'}
+        </span>
       </div>
 
       {hud.banner && (

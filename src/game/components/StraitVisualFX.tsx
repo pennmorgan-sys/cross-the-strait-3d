@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { COLORS } from '../constants'
 import { runtime, progress } from '../runtime'
 import type { LevelConfig } from '../types'
-import { perfState } from '../systems/performance'
+import { getCaps, perfState } from '../systems/performance'
 
 const playing = () => runtime.running
 
@@ -137,6 +137,15 @@ export function RefineryGlow({ level }: { level: LevelConfig }) {
   )
 }
 
+const SKY_MISSILE_GEOM = {
+  body: new THREE.ConeGeometry(0.08, 1.4, 6),
+  tip: new THREE.SphereGeometry(0.1, 6, 6),
+}
+const SKY_MISSILE_MAT = {
+  body: new THREE.MeshBasicMaterial({ color: '#fdba74' }),
+  tip: new THREE.MeshBasicMaterial({ color: '#fb923c' }),
+}
+
 export function SkyMissilesEnhanced({ count }: { count: number }) {
   const pool = useMemo(
     () =>
@@ -153,28 +162,34 @@ export function SkyMissilesEnhanced({ count }: { count: number }) {
     if (!grp.current) return
     grp.current.position.z = runtime.player.z
     const t = state.clock.elapsedTime
-    const show = runtime.level.id >= 3 && playing()
+    const show = playing()
+    let live = 0
     grp.current.children.forEach((c, i) => {
       const m = pool[i]
       c.visible = show
       if (!show) return
+      live++
       const y = 16 + ((t * m.speed * 22 + m.phase * 6) % 28)
       const z = m.z - ((t * m.speed * 45) % 70)
       c.position.set(m.x, y, z)
     })
+    const cap = getCaps().maxMissileTrails
+    perfState.counts.trails = Math.min(live, cap)
   })
   return (
     <group ref={grp}>
       {pool.map((_, i) => (
         <group key={i} visible={false}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.08, 1.4, 6]} />
-            <meshBasicMaterial color="#fdba74" />
-          </mesh>
-          <mesh position={[0, -0.9, 0]}>
-            <sphereGeometry args={[0.1, 6, 6]} />
-            <meshBasicMaterial color="#fb923c" />
-          </mesh>
+          <mesh
+            rotation={[Math.PI / 2, 0, 0]}
+            geometry={SKY_MISSILE_GEOM.body}
+            material={SKY_MISSILE_MAT.body}
+          />
+          <mesh
+            position={[0, -0.9, 0]}
+            geometry={SKY_MISSILE_GEOM.tip}
+            material={SKY_MISSILE_MAT.tip}
+          />
         </group>
       ))}
     </group>

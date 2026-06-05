@@ -10,7 +10,7 @@ export default function GlPerfTune() {
       gl.setPixelRatio(target)
     }
     const caps = getCaps()
-    const wantShadows = caps.shadows && perfState.fxMul > 0.55
+    const wantShadows = caps.shadows && perfState.fxMul > 0.4
     if (gl.shadowMap.enabled !== wantShadows) {
       gl.shadowMap.enabled = wantShadows
     }

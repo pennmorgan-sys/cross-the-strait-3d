@@ -1,13 +1,20 @@
 import { useGame } from '../game/store'
 import { getMissionBriefing } from '../game/missionBriefings'
+import { getDeliveryDestination, deliveryBriefing } from '../game/deliveryDestinations'
 import { startLevel } from '../game/runtime'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
-import { CHAOS_LEVEL_ID, ENDLESS_LEVEL_ID } from '../game/constants'
+import { CHAOS_LEVEL_ID, DELIVERY_LEVEL_ID, ENDLESS_LEVEL_ID } from '../game/constants'
+import { MinimapPreview } from './Minimap'
 
 export default function MissionBriefing() {
   const selectedLevel = useGame((s) => s.selectedLevel)
+  const deliveryMode = useGame((s) => s.deliveryMode)
+  const selectedDelivery = useGame((s) => s.selectedDelivery)
   const setScreen = useGame((s) => s.setScreen)
-  const mission = getMissionBriefing(selectedLevel)
+  const dest = selectedDelivery ? getDeliveryDestination(selectedDelivery) : null
+  const mission = dest
+    ? { levelId: selectedLevel, ...deliveryBriefing(dest) }
+    : getMissionBriefing(selectedLevel)
   const style = ROUTE_STYLE[mission.tankerRoute]
 
   return (
@@ -20,7 +27,9 @@ export default function MissionBriefing() {
             ? 'STRAIT RUN'
             : selectedLevel === CHAOS_LEVEL_ID
               ? 'CHAOS BRIEFING'
-              : 'COMMANDER BRIEFING'}
+              : deliveryMode
+                ? 'WORLD DELIVERY'
+                : 'COMMANDER BRIEFING'}
         </p>
 
         <p className="briefing-codename show">{mission.codename}</p>
@@ -34,12 +43,20 @@ export default function MissionBriefing() {
           {mission.routeLabel}
         </div>
 
+        <div className="briefing-minimap-wrap briefing-phase show">
+          <MinimapPreview
+            destinationId={selectedDelivery}
+            levelId={selectedLevel}
+          />
+        </div>
         <div className="briefing-map-strip briefing-phase show">
           <span className="lit">PERSIAN GULF</span>
           <span className="strip-arrow">→</span>
-          <span className="lit">STRAIT</span>
+          <span className="lit">HORMUZ</span>
           <span className="strip-arrow">→</span>
-          <span className="lit">SAFE WATER</span>
+          <span className="lit">
+            {dest ? dest.country.toUpperCase() : 'SAFE WATER'}
+          </span>
         </div>
 
         <blockquote className="briefing-commander briefing-phase show">
@@ -70,8 +87,16 @@ export default function MissionBriefing() {
           <button type="button" className="btn gold" onClick={() => startLevel(selectedLevel)}>
             START MISSION
           </button>
-          <button type="button" className="btn secondary" onClick={() => setScreen('levels')}>
-            MISSIONS
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() =>
+              setScreen(
+                deliveryMode || selectedLevel === DELIVERY_LEVEL_ID ? 'delivery' : 'levels',
+              )
+            }
+          >
+            {deliveryMode ? 'DESTINATIONS' : 'MISSIONS'}
           </button>
           <button type="button" className="btn secondary" onClick={() => setScreen('menu')}>
             BACK

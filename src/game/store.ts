@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { HudSnapshot, Screen } from './types'
-import { START_HEALTH, MAX_HEALTH, ENDLESS_LEVEL_ID } from './constants'
+import { START_HEALTH, MAX_HEALTH, DELIVERY_LEVEL_ID, ENDLESS_LEVEL_ID } from './constants'
+import type { DeliveryDestinationId } from './deliveryDestinations'
 import { loadEndlessBest } from './systems/endlessStorage'
 import { loadBest, saveBest, type BestMap } from './systems/storage'
 import { loadSettings, saveSettings } from './systems/settings'
+import { setQualityMode as applyQualityMode, type QualityMode } from './systems/performance'
 import { initAudio, setSoundEnabled, sfx } from './systems/audio'
 import type { BestRecord } from './types'
 
@@ -43,8 +45,11 @@ interface GameStore {
   settingsOpen: boolean
   nightMode: boolean
   soundOn: boolean
+  qualityMode: QualityMode
   chaosMode: boolean
   endlessMode: boolean
+  deliveryMode: boolean
+  selectedDelivery: DeliveryDestinationId | null
   endlessBest: number
   selectedLevel: number
   introDone: boolean
@@ -61,11 +66,14 @@ interface GameStore {
   closeSettings: () => void
   toggleNightMode: () => void
   toggleSound: () => void
+  setQualityMode: (mode: QualityMode) => void
   setSelectedLevel: (n: number) => void
   setIntroDone: () => void
   startMission: (levelId: number) => void
   startChaos: () => void
   startEndlessRun: () => void
+  startDelivery: (destinationId: DeliveryDestinationId) => void
+  openDeliverySelect: () => void
   refreshEndlessBest: () => void
   setHud: (h: HudSnapshot) => void
   updateBest: (id: number, rec: BestRecord) => void
@@ -84,8 +92,11 @@ export const useGame = create<GameStore>((set, get) => ({
   settingsOpen: false,
   nightMode: initialSettings.nightMode,
   soundOn: initialSettings.soundOn,
+  qualityMode: initialSettings.qualityMode,
   chaosMode: false,
   endlessMode: false,
+  deliveryMode: false,
+  selectedDelivery: null,
   endlessBest: loadEndlessBest(),
   selectedLevel: 1,
   introDone: typeof localStorage !== 'undefined' && localStorage.getItem('cts-intro') === '1',
@@ -103,14 +114,23 @@ export const useGame = create<GameStore>((set, get) => ({
   closeControls: () => set({ controlsOpen: false }),
   openSettings: () => set({ settingsOpen: true, controlsOpen: false }),
   closeSettings: () => set({ settingsOpen: false }),
+  setQualityMode: (mode) => {
+    applyQualityMode(mode)
+    saveSettings({
+      nightMode: get().nightMode,
+      soundOn: get().soundOn,
+      qualityMode: mode,
+    })
+    set({ qualityMode: mode })
+  },
   toggleNightMode: () => {
     const nightMode = !get().nightMode
-    saveSettings({ nightMode, soundOn: get().soundOn })
+    saveSettings({ nightMode, soundOn: get().soundOn, qualityMode: get().qualityMode })
     set({ nightMode })
   },
   toggleSound: () => {
     const soundOn = !get().soundOn
-    saveSettings({ nightMode: get().nightMode, soundOn })
+    saveSettings({ nightMode: get().nightMode, soundOn, qualityMode: get().qualityMode })
     setSoundEnabled(soundOn)
     if (soundOn) {
       initAudio()
@@ -130,12 +150,43 @@ export const useGame = create<GameStore>((set, get) => ({
   startMission: (levelId) => {
     initAudio()
     sfx.ui()
-    set({ selectedLevel: levelId, chaosMode: false, endlessMode: false, screen: 'briefing' })
+    set({
+      selectedLevel: levelId,
+      chaosMode: false,
+      endlessMode: false,
+      deliveryMode: false,
+      selectedDelivery: null,
+      screen: 'briefing',
+    })
   },
   startChaos: () => {
     initAudio()
     sfx.ui()
-    set({ selectedLevel: 99, chaosMode: true, endlessMode: false, screen: 'briefing' })
+    set({
+      selectedLevel: 99,
+      chaosMode: true,
+      endlessMode: false,
+      deliveryMode: false,
+      selectedDelivery: null,
+      screen: 'briefing',
+    })
+  },
+  openDeliverySelect: () => {
+    initAudio()
+    sfx.ui()
+    set({ screen: 'delivery' })
+  },
+  startDelivery: (destinationId) => {
+    initAudio()
+    sfx.ui()
+    set({
+      selectedDelivery: destinationId,
+      selectedLevel: DELIVERY_LEVEL_ID,
+      chaosMode: false,
+      endlessMode: false,
+      deliveryMode: true,
+      screen: 'briefing',
+    })
   },
   startEndlessRun: () => {
     initAudio()
@@ -143,13 +194,48 @@ export const useGame = create<GameStore>((set, get) => ({
     set({
       selectedLevel: ENDLESS_LEVEL_ID,
       chaosMode: false,
+      deliveryMode: false,
+      selectedDelivery: null,
       endlessMode: true,
       endlessBest: loadEndlessBest(),
       screen: 'briefing',
     })
   },
   refreshEndlessBest: () => set({ endlessBest: loadEndlessBest() }),
-  setHud: (h) => set({ hud: h }),
+  setHud: (h) => {
+    const prev = get().hud
+    if (
+      prev.score === h.score &&
+      prev.multiplier === h.multiplier &&
+      prev.health === h.health &&
+      prev.maxHealth === h.maxHealth &&
+      prev.boost === h.boost &&
+      prev.supplies === h.supplies &&
+      Math.abs(prev.progress - h.progress) < 0.004 &&
+      prev.powerUp === h.powerUp &&
+      prev.shield === h.shield &&
+      prev.levelName === h.levelName &&
+      prev.missionCodename === h.missionCodename &&
+      prev.banner === h.banner &&
+      prev.finalDash === h.finalDash &&
+      prev.siren === h.siren &&
+      prev.incoming === h.incoming &&
+      prev.tankerRoute === h.tankerRoute &&
+      prev.routeLabel === h.routeLabel &&
+      prev.interceptEvent === h.interceptEvent &&
+      prev.activeSurprise === h.activeSurprise &&
+      prev.minesweeperReady === h.minesweeperReady &&
+      prev.isEndless === h.isEndless &&
+      prev.endlessDistance === h.endlessDistance &&
+      prev.endlessBest === h.endlessBest &&
+      prev.playerX === h.playerX &&
+      prev.deliveryCountry === h.deliveryCountry &&
+      prev.deliveryFlag === h.deliveryFlag
+    ) {
+      return
+    }
+    set({ hud: h })
+  },
 
   updateBest: (id, rec) => {
     const cur = get().best[id]

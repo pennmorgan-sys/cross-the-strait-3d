@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { useGame } from '../store'
-import { getLevel } from '../levels'
+import { getLevel, isPeacefulLevel } from '../levels'
 import { skyForLevel } from '../systems/settings'
 import { getCaps, getCanvasDpr, perfState, subscribePerf } from '../systems/performance'
 import Ocean from './Ocean'
@@ -32,10 +32,12 @@ export default function GameCanvas() {
   const paused = useGame((s) => s.paused)
   const fxMul = useFxMul()
   const level = getLevel(selectedLevel)
+  const peaceful = isPeacefulLevel(level)
   const sky = skyForLevel(level.sky, nightMode)
   const caps = getCaps()
-  const bloomBase = nightMode ? 1.05 : 0.85
-  const usePost = caps.postfx && fxMul > 0.08
+  const bloomBase = nightMode ? 1.15 : perfState.tier === 'high' ? 1.05 : 0.75
+  const usePost = caps.postfx && fxMul > 0.05
+  const useBloom = caps.bloom && fxMul > 0.15
 
   return (
     <Canvas
@@ -43,21 +45,22 @@ export default function GameCanvas() {
       dpr={getCanvasDpr()}
       frameloop={paused ? 'never' : 'always'}
       gl={{
-        antialias: perfState.tier === 'high',
+        antialias: perfState.tier !== 'mobile',
         powerPreference: 'high-performance',
         alpha: false,
         stencil: false,
       }}
-      camera={{ fov: 68, near: 0.1, far: 340, position: [0, 5, 11] }}
+      camera={{ fov: 66, near: 0.1, far: 360, position: [0, 5, 11] }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping
-        gl.toneMappingExposure = nightMode ? 1.08 : 1.32
+        gl.toneMappingExposure = nightMode ? 1.12 : 1.42
+        gl.outputColorSpace = THREE.SRGBColorSpace
         gl.shadowMap.enabled = caps.shadows
         gl.shadowMap.type = THREE.PCFSoftShadowMap
       }}
     >
       <color attach="background" args={[sky.bottom]} />
-      <fog attach="fog" args={[sky.fog, nightMode ? 50 : 68, nightMode ? 210 : 255]} />
+      <fog attach="fog" args={[sky.fog, nightMode ? 55 : 75, nightMode ? 225 : 270]} />
 
       <PerfTicker />
       <GlPerfTune />
@@ -72,28 +75,28 @@ export default function GameCanvas() {
 
       <FollowCamera />
       <PlayerBoat />
-      <Hazards />
-      <Bombs />
+      {!peaceful && <Hazards />}
+      {!peaceful && <Bombs />}
       <Pickups />
       <Particles />
 
       {usePost && (
         <EffectComposer multisampling={caps.bloomMultisampling}>
-          {caps.bloom && fxMul > 0.2 ? (
+          {useBloom ? (
             <Bloom
               mipmapBlur
               intensity={bloomBase * fxMul}
-              luminanceThreshold={nightMode ? 0.32 : 0.45}
-              luminanceSmoothing={0.2}
-              radius={0.85}
+              luminanceThreshold={nightMode ? 0.28 : 0.4}
+              luminanceSmoothing={0.18}
+              radius={0.92}
             />
           ) : (
             <></>
           )}
           <Vignette
             eskil={false}
-            offset={0.22}
-            darkness={(nightMode ? 0.65 : 0.45) * fxMul}
+            offset={0.2}
+            darkness={(nightMode ? 0.58 : 0.38) * fxMul}
           />
         </EffectComposer>
       )}

@@ -1,13 +1,14 @@
 import type { LevelConfig } from './types'
 import {
   CHAOS_LEVEL_ID,
+  DELIVERY_LEVEL_ID,
   ENDLESS_LEVEL_ID,
   MAX_VISIBLE_SUPPLIES,
   NORMAL_SUPPLY_INTERVAL_SEC,
   SPECIAL_SUPPLY_BURST_MAX,
 } from './constants'
 
-export { CHAOS_LEVEL_ID, ENDLESS_LEVEL_ID }
+export { CHAOS_LEVEL_ID, DELIVERY_LEVEL_ID, ENDLESS_LEVEL_ID }
 
 export function isEndlessLevel(id: number) {
   return id === ENDLESS_LEVEL_ID
@@ -43,8 +44,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 22,
     bombInterval: 2.4,
     bombBurst: 1,
-    obstacleGap: 16,
-    mineBias: 0.14,
+    obstacleGap: 17,
+    mineBias: 0.08,
     patrol: true,
     cargo: false,
     searchlights: false,
@@ -65,8 +66,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 24,
     bombInterval: 2.5,
     bombBurst: 2,
-    obstacleGap: 15,
-    mineBias: 0.16,
+    obstacleGap: 16,
+    mineBias: 0.1,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -84,8 +85,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 26,
     bombInterval: 2.7,
     bombBurst: 1,
-    obstacleGap: 14,
-    mineBias: 0.4,
+    obstacleGap: 15,
+    mineBias: 0.22,
     patrol: true,
     cargo: false,
     searchlights: false,
@@ -103,8 +104,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 28,
     bombInterval: 1.35,
     bombBurst: 2,
-    obstacleGap: 13,
-    mineBias: 0.2,
+    obstacleGap: 14,
+    mineBias: 0.12,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -122,8 +123,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 29,
     bombInterval: 1.5,
     bombBurst: 2,
-    obstacleGap: 12,
-    mineBias: 0.24,
+    obstacleGap: 13,
+    mineBias: 0.14,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -141,8 +142,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 30,
     bombInterval: 1.2,
     bombBurst: 2,
-    obstacleGap: 12,
-    mineBias: 0.26,
+    obstacleGap: 13,
+    mineBias: 0.15,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -160,8 +161,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 31,
     bombInterval: 1.1,
     bombBurst: 3,
-    obstacleGap: 11,
-    mineBias: 0.28,
+    obstacleGap: 12,
+    mineBias: 0.16,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -179,8 +180,8 @@ export const LEVELS: LevelConfig[] = [
     speed: 30,
     bombInterval: 1.45,
     bombBurst: 2,
-    obstacleGap: 12,
-    mineBias: 0.16,
+    obstacleGap: 13,
+    mineBias: 0.1,
     patrol: true,
     cargo: true,
     searchlights: true,
@@ -200,14 +201,38 @@ export const CHAOS_LEVEL: LevelConfig = {
   speed: 32,
   bombInterval: 0.75,
   bombBurst: 3,
-  obstacleGap: 10,
-  mineBias: 0.32,
+  obstacleGap: 11,
+  mineBias: 0.18,
   patrol: true,
   cargo: true,
   searchlights: true,
   storm: false,
   targetScore: 100000,
   sky: SKY.chaos,
+}
+
+export const DELIVERY_LEVEL: LevelConfig = {
+  id: DELIVERY_LEVEL_ID,
+  name: 'World Delivery',
+  tag: 'GLOBAL ROUTE',
+  description: 'Peaceful escort — thread the Strait and deliver crude to your chosen port.',
+  difficulty: 'Normal',
+  length: 680,
+  speed: 24,
+  bombInterval: 0,
+  bombBurst: 0,
+  obstacleGap: 9999,
+  mineBias: 0,
+  patrol: false,
+  cargo: false,
+  searchlights: false,
+  storm: false,
+  targetScore: 28000,
+  sky: SKY.hazy,
+  peaceful: true,
+  normalSupplyIntervalSeconds: 2.4,
+  maxVisibleSupplies: 5,
+  specialSupplyBurstMax: 6,
 }
 
 export const ENDLESS_LEVEL: LevelConfig = {
@@ -221,8 +246,8 @@ export const ENDLESS_LEVEL: LevelConfig = {
   speed: 26,
   bombInterval: 1.35,
   bombBurst: 2,
-  obstacleGap: 13,
-  mineBias: 0.22,
+  obstacleGap: 14,
+  mineBias: 0.12,
   patrol: true,
   cargo: true,
   searchlights: true,
@@ -234,8 +259,17 @@ export const ENDLESS_LEVEL: LevelConfig = {
   specialSupplyBurstMax: 6,
 }
 
+export function isDeliveryLevel(id: number) {
+  return id === DELIVERY_LEVEL_ID
+}
+
+export function isPeacefulLevel(level: LevelConfig) {
+  return level.peaceful === true
+}
+
 export function getLevel(id: number): LevelConfig {
   if (id === ENDLESS_LEVEL_ID) return { ...ENDLESS_LEVEL }
+  if (id === DELIVERY_LEVEL_ID) return { ...DELIVERY_LEVEL }
   if (id === CHAOS_LEVEL_ID) return CHAOS_LEVEL
   return LEVELS[Math.max(0, Math.min(LEVELS.length - 1, id - 1))]
 }

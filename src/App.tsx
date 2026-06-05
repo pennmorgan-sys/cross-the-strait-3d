@@ -12,6 +12,7 @@ import SettingsModal from './ui/SettingsModal'
 import MobileControls from './ui/MobileControls'
 import GlobeIntro from './ui/GlobeIntro'
 import MissionBriefing from './ui/MissionBriefing'
+import DeliverySelect from './ui/DeliverySelect'
 import PerformanceOverlay from './ui/PerformanceOverlay'
 import InputTicker from './game/InputTicker'
 
@@ -35,6 +36,7 @@ export default function App() {
       {screen === 'intro' && <GlobeIntro />}
       {screen === 'menu' && <MainMenu />}
       {screen === 'levels' && <LevelSelect />}
+      {screen === 'delivery' && <DeliverySelect />}
       {screen === 'briefing' && <MissionBriefing />}
 
       {screen === 'playing' && (

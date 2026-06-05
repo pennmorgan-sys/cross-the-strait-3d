@@ -1,18 +1,31 @@
+import type { QualityMode } from './performance'
+
 export interface GameSettings {
   nightMode: boolean
   soundOn: boolean
+  qualityMode: QualityMode
 }
 
 const KEY = 'cts-settings'
 
-const defaults: GameSettings = { nightMode: false, soundOn: true }
+const defaults: GameSettings = {
+  nightMode: false,
+  soundOn: true,
+  qualityMode: 'auto',
+}
 
 export function loadSettings(): GameSettings {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return { ...defaults }
-    const parsed = JSON.parse(raw) as Partial<GameSettings>
-    return { ...defaults, ...parsed }
+    const parsed = JSON.parse(raw) as Partial<GameSettings> & { qualityMode?: string }
+    const rawQ = parsed.qualityMode as string | undefined
+    let qualityMode = defaults.qualityMode
+    if (rawQ === 'normal') qualityMode = 'balanced'
+    else if (rawQ === 'high' || rawQ === 'balanced' || rawQ === 'mobile' || rawQ === 'auto') {
+      qualityMode = rawQ
+    }
+    return { ...defaults, ...parsed, qualityMode }
   } catch {
     return { ...defaults }
   }

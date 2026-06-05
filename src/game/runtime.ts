@@ -10,7 +10,18 @@ import {
   POWERUP_RADAR_MS,
   OIL_SLIP_MS,
 } from './constants'
-import { getLevel, CHAOS_LEVEL_ID, isEndlessLevel, ENDLESS_LEVEL } from './levels'
+import {
+  getLevel,
+  CHAOS_LEVEL_ID,
+  isDeliveryLevel,
+  isEndlessLevel,
+  ENDLESS_LEVEL,
+} from './levels'
+import {
+  getDeliveryDestination,
+  deliveryBriefing,
+  type DeliveryDestinationId,
+} from './deliveryDestinations'
 import { saveEndlessBest, loadEndlessBest } from './systems/endlessStorage'
 import { getMissionBriefing } from './missionBriefings'
 import type { HudSnapshot, LevelConfig, PowerUpType, RunStats, TankerRouteId } from './types'
@@ -37,6 +48,7 @@ export const runtime = {
   forwardSpeed: 22,
 
   tankerRoute: 'china' as TankerRouteId,
+  deliveryDestinationId: null as DeliveryDestinationId | null,
   tankerProgress: 0,
   interceptEvent: false,
   interceptTimer: 0,
@@ -147,7 +159,7 @@ function tickEndlessEscalation(d: number) {
   runtime.level.speed = ENDLESS_LEVEL.speed + tier * 1.15
   runtime.level.bombInterval = Math.max(0.55, ENDLESS_LEVEL.bombInterval - tier * 0.045)
   runtime.level.obstacleGap = Math.max(8, ENDLESS_LEVEL.obstacleGap - tier * 0.22)
-  runtime.level.mineBias = Math.min(0.48, ENDLESS_LEVEL.mineBias + tier * 0.012)
+  runtime.level.mineBias = Math.min(0.28, ENDLESS_LEVEL.mineBias + tier * 0.008)
   if (tier >= 2 && tier % 3 === 0) {
     runtime.level.bombBurst = Math.min(4, ENDLESS_LEVEL.bombBurst + 1)
   }
@@ -171,9 +183,17 @@ function tickEndlessEscalation(d: number) {
 export function startLevel(id: number) {
   resetPerfSession()
   const level = getLevel(id)
-  const briefing = getMissionBriefing(id)
+  const g = useGame.getState()
+  const dest =
+    g.deliveryMode && g.selectedDelivery
+      ? getDeliveryDestination(g.selectedDelivery)
+      : null
+  const briefing = dest
+    ? { ...getMissionBriefing(id), ...deliveryBriefing(dest) }
+    : getMissionBriefing(id)
   runtime.level = level
   runtime.running = true
+  runtime.deliveryDestinationId = dest?.id ?? null
   runtime.tankerRoute = briefing.tankerRoute
   runtime.tankerProgress = 0
   runtime.interceptEvent = false
@@ -224,12 +244,12 @@ export function startLevel(id: number) {
   initAudio()
   sfx.start()
 
-  const g = useGame.getState()
   g.setSelectedLevel(id)
   g.setScreen('playing')
   useGame.setState({
     endlessMode: isEndlessLevel(id),
     chaosMode: id === CHAOS_LEVEL_ID,
+    deliveryMode: isDeliveryLevel(id) && !!dest,
   })
   flushHud(true)
 }
@@ -460,7 +480,12 @@ export function flushHud(force = false) {
   const t = now()
   if (!force && t - lastFlush < perfState.hudFlushMs) return
   lastFlush = t
-  const briefing = getMissionBriefing(runtime.level.id)
+  const g = useGame.getState()
+  const dest = getDeliveryDestination(runtime.deliveryDestinationId)
+  const briefing =
+    dest && g.deliveryMode
+      ? { ...getMissionBriefing(runtime.level.id), ...deliveryBriefing(dest) }
+      : getMissionBriefing(runtime.level.id)
   const snap: HudSnapshot = {
     score: runtime.score,
     multiplier: runtime.multiplier,
@@ -487,6 +512,9 @@ export function flushHud(force = false) {
     isEndless: isEndlessLevel(runtime.level.id),
     endlessDistance: isEndlessLevel(runtime.level.id) ? endlessNm() : undefined,
     endlessBest: isEndlessLevel(runtime.level.id) ? loadEndlessBest() : undefined,
+    playerX: runtime.player.x,
+    deliveryCountry: dest?.country,
+    deliveryFlag: dest?.flag,
   }
   useGame.getState().setHud(snap)
 }
@@ -497,8 +525,17 @@ function bannerText(): string {
     return `STRAIT RUN · ${endlessNm()} NM · BEST ${loadEndlessBest().toLocaleString()}`
   }
   if (runtime.activeSurprise) return runtime.activeSurprise
+  if (runtime.level.peaceful) {
+    const d = getDeliveryDestination(runtime.deliveryDestinationId)
+    if (isSafeWater() && d) return `OPEN OCEAN — ${d.flag} ${d.country.toUpperCase()}`
+    if (d) return `DELIVERY — ${d.flag} ${d.country.toUpperCase()}`
+    return 'WORLD DELIVERY — HOLD THE LANE'
+  }
   if (runtime.interceptEvent) return 'INTERCEPT SHIPS INBOUND'
-  if (isSafeWater()) return 'SAFE WATER AHEAD'
+  if (isSafeWater()) {
+    const d = getDeliveryDestination(runtime.deliveryDestinationId)
+    return d ? `OPEN OCEAN — ${d.country.toUpperCase()} LEG` : 'SAFE WATER AHEAD'
+  }
   if (isFinalDash()) return 'FINAL ESCORT'
   if (runtime.level.id === 4) return 'MISSILE STORM'
   if (runtime.level.id === 3) return 'MINE BELT AHEAD'

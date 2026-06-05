@@ -3,6 +3,7 @@ import { useGame } from '../game/store'
 export default function MainMenu() {
   const startMission = useGame((s) => s.startMission)
   const startEndlessRun = useGame((s) => s.startEndlessRun)
+  const openDeliverySelect = useGame((s) => s.openDeliverySelect)
   const startChaos = useGame((s) => s.startChaos)
   const setScreen = useGame((s) => s.setScreen)
   const openSettings = useGame((s) => s.openSettings)
@@ -16,8 +17,8 @@ export default function MainMenu() {
         <p className="tagline">Oil Tanker Survival</p>
         <h1 className="title">CROSS THE STRAIT</h1>
         <p className="menu-desc">
-          You are the tanker. Pilot your ship through the Strait of Hormuz — mines, missiles,
-          and intercept craft won&apos;t wait.
+          Escort an oil tanker through the Strait of Hormuz. Steer clear of mines and missiles,
+          grab supplies, and reach safe water — or chase a high score in Strait Run.
         </p>
         {nightMode && <p className="menu-night-badge">NIGHT OPS ACTIVE</p>}
 
@@ -28,6 +29,12 @@ export default function MainMenu() {
           <p className="menu-endless-hint">
             Endless high score · Hormuz corridor · Best{' '}
             <b>{endlessBest > 0 ? endlessBest.toLocaleString() : '—'}</b>
+          </p>
+          <button type="button" className="btn btn-lg teal" onClick={openDeliverySelect}>
+            WORLD DELIVERY
+          </button>
+          <p className="menu-endless-hint">
+            Pick a country · minimap route · deliver oil after Hormuz
           </p>
           <button type="button" className="btn btn-lg" onClick={() => startMission(1)}>
             STORY MISSIONS
@@ -49,7 +56,7 @@ export default function MainMenu() {
         </div>
 
         <p className="brand-foot">
-          8 operations · Strait Run · Chaos · Night ops
+          World Delivery · 8 ops · Strait Run · Chaos
         </p>
       </div>
     </div>

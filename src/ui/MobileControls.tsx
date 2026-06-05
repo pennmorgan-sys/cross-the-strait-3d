@@ -43,11 +43,15 @@ export default function MobileControls() {
     return () => cancelAnimationFrame(id)
   }, [])
 
+  if (screen !== 'playing') return null
+
   return (
-    <div className={`mobile auto-hide${screen === 'playing' ? ' mobile-active' : ''}`}>
+    <div className="mobile auto-hide mobile-active" aria-hidden={false}>
       <div
         className="joystick"
         ref={baseRef}
+        role="application"
+        aria-label="Steer tanker"
         onPointerDown={(e) => {
           e.preventDefault()
           pointerId.current = e.pointerId
@@ -77,6 +81,7 @@ export default function MobileControls() {
       <button
         type="button"
         className="mob-btn mob-boost"
+        aria-label="Flank boost"
         onPointerDown={(e) => {
           e.preventDefault()
           setBoostBtn(true)
@@ -88,11 +93,22 @@ export default function MobileControls() {
         FLANK
       </button>
 
-      <button type="button" className="mob-btn mob-power" onClick={() => usePowerUp()}>
+      <button
+        type="button"
+        className="mob-btn mob-power"
+        aria-label="Use power-up"
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={() => usePowerUp()}
+      >
         POWER
       </button>
 
-      <button type="button" className="mob-btn mob-pause" onClick={togglePause}>
+      <button
+        type="button"
+        className="mob-btn mob-pause"
+        aria-label="Pause game"
+        onClick={togglePause}
+      >
         II
       </button>
     </div>

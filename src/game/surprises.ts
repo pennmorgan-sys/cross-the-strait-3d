@@ -56,8 +56,9 @@ function spawnPatrolWave(count: number, spread = 14) {
 function spawnMineLine(n: number) {
   const pz = runtime.player.z
   const lane = Math.random() < 0.5 ? -3.5 : 3.5
-  for (let i = 0; i < n; i++) {
-    runtime.scriptedHazards.push({ kind: 'mine', x: lane + (i % 2) * 1.2, z: pz - 28 - i * 5 })
+  const count = Math.min(n, 2)
+  for (let i = 0; i < count; i++) {
+    runtime.scriptedHazards.push({ kind: 'mine', x: lane + (i % 2) * 1.2, z: pz - 28 - i * 6 })
   }
 }
 
@@ -82,7 +83,7 @@ function supplyRain(count: number) {
 
 /** Time-based beats (openingClock) */
 export function runOpeningSurprises() {
-  if (!runtime.running || isEndlessLevel(runtime.level.id)) return
+  if (!runtime.running || isEndlessLevel(runtime.level.id) || runtime.level.peaceful) return
   const lid = runtime.level.id
   const pz = runtime.player.z
   const once = (key: string, at: number, fn: () => void) => {
@@ -128,7 +129,7 @@ export function runOpeningSurprises() {
   if (lid === 3) {
     once('l3-mines', 0.8, () => {
       setSurpriseBanner('MINE BELT — PULSE READY (E)')
-      spawnMineLine(3)
+      spawnMineLine(2)
       toast('MINEFIELD DETECTED', 'bad')
     })
     once('l3-oil', 4, () => {
@@ -205,14 +206,14 @@ export function runOpeningSurprises() {
       setSurpriseBanner('CHAOS MODE — EVERYTHING AT ONCE')
       spawnBombSalvo(3)
       spawnPatrolWave(2, 25)
-      spawnMineLine(2)
+      spawnMineLine(1)
     })
   }
 }
 
 /** Progress-based surprises (0..1) */
 export function runProgressSurprises() {
-  if (!runtime.running || isEndlessLevel(runtime.level.id)) return
+  if (!runtime.running || isEndlessLevel(runtime.level.id) || runtime.level.peaceful) return
   const lid = runtime.level.id
   const p = progress()
   const pz = runtime.player.z
@@ -252,7 +253,7 @@ export function runProgressSurprises() {
   }
 
   if (lid === 7 && p > 0.62 && tryFlag('l7-mid')) {
-    spawnMineLine(2)
+    spawnMineLine(1)
     spawnPatrolWave(2, 34)
     setSurpriseBanner('DUAL LANE MINEFIELD')
   }
@@ -270,7 +271,7 @@ export function runProgressSurprises() {
       const roll = Math.random()
       if (roll < 0.35) spawnBombSalvo(1 + Math.floor(Math.random() * 2))
       else if (roll < 0.65) spawnPatrolWave(2, 20 + beat * 2)
-      else spawnMineLine(1 + (beat % 2))
+      else if (beat % 2 === 0) spawnMineLine(1)
       if (beat % 3 === 0) pulseFlare()
       toast(['HOT SKY', 'PATROL SWARM', 'MINE SNAP', 'FLARE BURST'][beat % 4], 'bad')
     }

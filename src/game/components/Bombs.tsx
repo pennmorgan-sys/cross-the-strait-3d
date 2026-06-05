@@ -5,7 +5,9 @@ import {
   BOMB_WARNING_TIME,
   BOMB_BLAST_RADIUS,
   EXPLOSION_DURATION,
+  DESPAWN_BEHIND,
   COLORS,
+  MAX_ACTIVE,
 } from '../constants'
 import { runtime, isSlow, damage, triggerExplosionFlash } from '../runtime'
 import { quickWaveAt } from '../waves'
@@ -13,7 +15,7 @@ import { clamp, rand } from '../systems/math'
 import { glowTexture } from '../systems/glow'
 import { getCaps, perfState } from '../systems/performance'
 
-const POOL = 30
+const POOL = MAX_ACTIVE.BOMBS + 2
 const SPAWN_Y = 56
 
 type State = 'idle' | 'fall' | 'boom'
@@ -123,6 +125,17 @@ export default function Bombs() {
       const s = shock.current[i]
       if (b.state === 'fall') falling++
       if (b.state === 'boom') booming++
+
+      if (b.state === 'fall' || b.state === 'boom') {
+        if (b.z > runtime.player.z + DESPAWN_BEHIND + 12) {
+          b.state = 'idle'
+          if (g) g.visible = false
+          if (w) w.visible = false
+          if (f) f.visible = false
+          if (s) s.visible = false
+          continue
+        }
+      }
 
       if (b.state === 'fall') {
         if (active) b.fall -= dt

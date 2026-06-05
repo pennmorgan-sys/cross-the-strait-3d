@@ -48,6 +48,7 @@ uniform vec3 uCrest;
 uniform vec3 uFog;
 uniform vec3 uPlayer;
 uniform float uCalm;
+uniform float uCheap;
 varying float vHeight;
 varying vec3 vWorld;
 varying float vSlopeX;
@@ -67,8 +68,13 @@ void main() {
   float sparkle = hash(floor(vWorld.xz * 1.3) + floor(uTime * 6.0));
   col += crest * step(0.93, sparkle) * 0.35;
   vec3 viewDir = normalize(vec3(uPlayer.x, 6.0, uPlayer.z + 12.0) - vWorld);
-  float fres = pow(1.0 - max(dot(n, viewDir), 0.0), 3.0);
-  col += fres * uCrest * 0.4;
+  float fres = pow(1.0 - max(dot(n, viewDir), 0.0), 2.8);
+  col += fres * uCrest * 0.55;
+  vec3 sunDir = normalize(vec3(0.35, 0.85, -0.4));
+  float spec = pow(max(dot(reflect(-viewDir, n), sunDir), 0.0), 48.0);
+  col += spec * uCrest * (0.25 + uCheap * -0.1);
+  float caustic = sin(vWorld.x * 0.4 + uTime * 2.0) * sin(vWorld.z * 0.35 - uTime * 1.6);
+  col += smoothstep(0.65, 1.0, caustic) * uCrest * 0.08 * (1.0 - uCheap);
   if (uBoost > 0.01) {
     float s = smoothstep(0.96, 1.0, sin(vWorld.z * 1.2 + uTime * 26.0))
             * smoothstep(2.5, 0.0, abs(vWorld.x - uPlayer.x));

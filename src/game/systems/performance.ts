@@ -1,8 +1,9 @@
 /** Runtime quality tiers, effect caps, FPS tracking, and soft throttles. */
 
 import { MAX_ACTIVE } from '../constants'
+import { loadSettings } from './settings'
 
-export type QualityTier = 'high' | 'normal' | 'mobile'
+export type QualityTier = 'high' | 'balanced' | 'mobile'
 export type QualityMode = QualityTier | 'auto'
 
 export interface PerfCaps {
@@ -33,61 +34,61 @@ const CAPS: Record<QualityTier, PerfCaps> = {
   high: {
     maxBombs: MAX_ACTIVE.BOMBS,
     maxExplosions: MAX_ACTIVE.EXPLOSIONS,
-    maxSmoke: 70,
+    maxSmoke: MAX_ACTIVE.SMOKE,
     maxMissileTrails: MAX_ACTIVE.MISSILE_TRAILS,
     maxSupplies: MAX_ACTIVE.SUPPLIES,
     maxHazards: MAX_ACTIVE.HAZARDS,
     maxParticles: MAX_ACTIVE.PARTICLES,
     maxSkyMissiles: MAX_ACTIVE.SKY_MISSILES,
-    maxJets: 4,
-    maxSearchlights: 5,
-    maxDistantSmoke: 6,
-    pickupLights: false,
+    maxJets: 6,
+    maxSearchlights: 6,
+    maxDistantSmoke: 8,
+    pickupLights: true,
     hazardLights: false,
     shadows: true,
-    shadowMapSize: 1024,
+    shadowMapSize: 2048,
     bloom: true,
     postfx: true,
-    dpr: [1, 1.5],
-    oceanSegments: [96, 140],
-    particleEmitScale: 0.9,
-    bloomMultisampling: 0,
+    dpr: [1.25, 1.5],
+    oceanSegments: [128, 180],
+    particleEmitScale: 1,
+    bloomMultisampling: 1,
   },
-  normal: {
+  balanced: {
     maxBombs: 7,
     maxExplosions: 5,
     maxSmoke: 50,
     maxMissileTrails: 28,
     maxSupplies: 6,
     maxHazards: 38,
-    maxParticles: 90,
-    maxSkyMissiles: 6,
-    maxJets: 2,
-    maxSearchlights: 3,
-    maxDistantSmoke: 4,
+    maxParticles: 110,
+    maxSkyMissiles: 10,
+    maxJets: 4,
+    maxSearchlights: 4,
+    maxDistantSmoke: 5,
     pickupLights: false,
     hazardLights: false,
-    shadows: false,
-    shadowMapSize: 512,
-    bloom: false,
+    shadows: true,
+    shadowMapSize: 1024,
+    bloom: true,
     bloomMultisampling: 0,
-    postfx: false,
-    dpr: [1, 1.5],
-    oceanSegments: [48, 72],
-    particleEmitScale: 0.8,
+    postfx: true,
+    dpr: [1, 1.25],
+    oceanSegments: [80, 110],
+    particleEmitScale: 0.9,
   },
   mobile: {
-    maxBombs: 4,
-    maxExplosions: 2,
-    maxSmoke: 18,
-    maxMissileTrails: 10,
-    maxSupplies: 4,
-    maxHazards: 22,
-    maxParticles: 45,
-    maxSkyMissiles: 2,
-    maxJets: 0,
+    maxBombs: 5,
+    maxExplosions: 3,
+    maxSmoke: 30,
+    maxMissileTrails: 16,
+    maxSupplies: 6,
+    maxHazards: 30,
+    maxParticles: 50,
+    maxSkyMissiles: 6,
+    maxJets: 2,
     maxSearchlights: 0,
-    maxDistantSmoke: 2,
+    maxDistantSmoke: 3,
     pickupLights: false,
     hazardLights: false,
     shadows: false,
@@ -95,35 +96,43 @@ const CAPS: Record<QualityTier, PerfCaps> = {
     bloom: false,
     bloomMultisampling: 0,
     postfx: false,
-    /** Bounds only — actual ratio from getCanvasDpr() on Retina */
-    dpr: [1.15, 2],
-    oceanSegments: [24, 36],
-    particleEmitScale: 0.5,
+    dpr: [1, 1],
+    oceanSegments: [32, 48],
+    particleEmitScale: 0.55,
   },
-}
-
-/** Mobile DPR: sharp enough on Retina without full 3× framebuffer cost */
-export function getMobileDprRange(): [number, number] {
-  const ratio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-  const max = Math.min(2, Math.max(1.35, ratio * 0.72))
-  const min = Math.min(1.15, max * 0.88)
-  return [min, max]
 }
 
 export function getCanvasDpr(): [number, number] {
-  if (perfState.tier === 'mobile') return getMobileDprRange()
   return getCaps().dpr
 }
 
 export function effectivePixelRatio(): number {
   const [min, max] = getCanvasDpr()
-  if (perfState.tier === 'mobile') return max
   const ratio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   return Math.max(min, Math.min(max, ratio * perfState.dprScale))
 }
 
+export function tierDisplayName(tier: QualityTier): string {
+  if (tier === 'balanced') return 'BALANCED'
+  return tier.toUpperCase()
+}
+
+function applyTierDefaults() {
+  const tier = perfState.tier
+  if (tier === 'high') {
+    perfState.skyChaosMul = 1
+    perfState.hudFlushMs = 50
+  } else if (tier === 'balanced') {
+    perfState.skyChaosMul = 0.78
+    perfState.hudFlushMs = 66
+  } else {
+    perfState.skyChaosMul = 0.52
+    perfState.hudFlushMs = 100
+  }
+}
+
 export const perfState = {
-  tier: 'normal' as QualityTier,
+  tier: 'balanced' as QualityTier,
   mode: 'auto' as QualityMode,
   fps: 60,
   frameMs: 16.67,
@@ -133,14 +142,17 @@ export const perfState = {
   emitScale: 1,
   /** Post-FX + bloom strength 0–1 (can disable bloom without remount) */
   fxMul: 1,
+  /** Sky backdrop spawn scale — tier base, never below 0.45 */
+  skyChaosMul: 1,
   /** DPR multiplier 0.75–1 */
   dprScale: 1,
   overlayVisible: false,
-  hudFlushMs: 100,
+  hudFlushMs: 66,
   counts: {
     bombs: 0,
     explosions: 0,
     smoke: 0,
+    trails: 0,
     supplies: 0,
     hazards: 0,
     particles: 0,
@@ -165,9 +177,9 @@ export function getCaps(): PerfCaps {
 
 /** 0 = full waves, 1 = cheap ocean shader path */
 export function oceanQuality(): number {
-  if (perfState.tier === 'mobile') return 1
-  if (perfState.tier === 'normal') return 0.65
-  return 0.2
+  if (perfState.tier === 'mobile') return 0.85
+  if (perfState.tier === 'balanced') return 0.35
+  return 0
 }
 
 /** Effective particle scale = tier base × soft throttle */
@@ -176,17 +188,17 @@ export function particleEmitScale(): number {
 }
 
 function detectTier(): QualityTier {
-  if (typeof window === 'undefined') return 'normal'
+  if (typeof window === 'undefined') return 'balanced'
   const ua = navigator.userAgent
   const mobile =
     /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
-    window.innerWidth < 900 ||
+    window.innerWidth < 768 ||
     window.matchMedia('(pointer: coarse)').matches
   if (mobile) return 'mobile'
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-  if (mem !== undefined && mem <= 4) return 'normal'
-  // Desktop defaults to normal — logs showed ~10 FPS on "high" tier
-  return 'normal'
+  if (mem !== undefined && mem <= 3) return 'balanced'
+  if (window.innerWidth >= 1024) return 'high'
+  return 'balanced'
 }
 
 const FPS_SAMPLES = 90
@@ -195,8 +207,23 @@ let peakFps = 60
 let softLowMs = 0
 
 export function initPerformance() {
-  resetPerfSession()
-  perfState.mode = 'auto'
+  peakFps = 60
+  fpsBuf.length = 0
+  softLowMs = 0
+
+  const saved = loadSettings().qualityMode ?? 'auto'
+  perfState.mode = saved
+  if (saved === 'auto') {
+    resetPerfSession()
+  } else {
+    perfState.tier = saved
+    perfState.performanceReduced = false
+    perfState.emitScale = 1
+    perfState.fxMul = 1
+    perfState.dprScale = 1
+    applyTierDefaults()
+    notifyPerf()
+  }
 
   if (typeof window === 'undefined') return
 
@@ -216,6 +243,9 @@ export function setQualityMode(mode: QualityMode) {
     perfState.tier = mode
     perfState.performanceReduced = false
     perfState.emitScale = 1
+    perfState.fxMul = 1
+    perfState.dprScale = 1
+    applyTierDefaults()
     notifyPerf()
   }
 }
@@ -230,6 +260,7 @@ export function resetPerfSession() {
   perfState.emitScale = 1
   perfState.fxMul = 1
   perfState.dprScale = 1
+  applyTierDefaults()
   notifyPerf()
 }
 
@@ -243,7 +274,6 @@ export function tickPerformance(dt: number, simActive = true) {
   const avgMs = fpsBuf.reduce((a, b) => a + b, 0) / fpsBuf.length
   perfState.frameMs = avgMs
   perfState.fps = avgMs > 0 ? 1000 / avgMs : 60
-  // Track sustained FPS only — ignore single-frame dt spikes (was reporting peak 451)
   peakFps = Math.max(30, Math.min(120, peakFps * 0.99 + perfState.fps * 0.01))
   perfState.highRefreshReady = perfState.fps >= 85 && perfState.tier === 'high'
 
@@ -256,15 +286,15 @@ export function tickPerformance(dt: number, simActive = true) {
   if (fps < 50) {
     softLowMs += dt * 1000
     if (fps < 28) {
-      perfState.emitScale = Math.max(0.35, perfState.emitScale - dt * 0.25)
-      perfState.fxMul = Math.max(0, perfState.fxMul - dt * 0.45)
+      perfState.emitScale = Math.max(0.5, perfState.emitScale - dt * 0.2)
+      perfState.fxMul = Math.max(0.45, perfState.fxMul - dt * 0.35)
       if (throttleDpr) {
         perfState.dprScale = Math.max(0.78, perfState.dprScale - dt * 0.12)
       }
       perfState.performanceReduced = true
     } else if (fps < 40) {
-      perfState.emitScale = Math.max(0.5, perfState.emitScale - dt * 0.12)
-      perfState.fxMul = Math.max(0.35, perfState.fxMul - dt * 0.2)
+      perfState.emitScale = Math.max(0.65, perfState.emitScale - dt * 0.1)
+      perfState.fxMul = Math.max(0.55, perfState.fxMul - dt * 0.15)
       if (throttleDpr) {
         perfState.dprScale = Math.max(0.85, perfState.dprScale - dt * 0.05)
       }

@@ -1,6 +1,8 @@
 import { useGame } from '../game/store'
 import { startLevel, runtime, progress, endlessNm } from '../game/runtime'
 import { getMissionBriefing } from '../game/missionBriefings'
+import { getDeliveryDestination, deliveryBriefing } from '../game/deliveryDestinations'
+import { DELIVERY_LEVEL_ID } from '../game/constants'
 import { isEndlessLevel } from '../game/levels'
 import { loadEndlessBest } from '../game/systems/endlessStorage'
 import { ENDLESS_LEVEL_ID } from '../game/constants'
@@ -9,7 +11,12 @@ export default function GameOverScreen() {
   const setScreen = useGame((s) => s.setScreen)
   const selectedLevel = useGame((s) => s.selectedLevel)
   const endlessMode = useGame((s) => s.endlessMode)
-  const mission = getMissionBriefing(selectedLevel)
+  const deliveryMode = useGame((s) => s.deliveryMode)
+  const selectedDelivery = useGame((s) => s.selectedDelivery)
+  const dest = selectedDelivery ? getDeliveryDestination(selectedDelivery) : null
+  const mission = dest
+    ? deliveryBriefing(dest)
+    : getMissionBriefing(selectedLevel)
   const endless = endlessMode || isEndlessLevel(selectedLevel)
   const best = loadEndlessBest()
 
@@ -68,7 +75,15 @@ export default function GameOverScreen() {
           <button
             type="button"
             className="btn"
-            onClick={() => startLevel(endless ? ENDLESS_LEVEL_ID : selectedLevel)}
+            onClick={() =>
+              startLevel(
+                endless
+                  ? ENDLESS_LEVEL_ID
+                  : deliveryMode
+                    ? DELIVERY_LEVEL_ID
+                    : selectedLevel,
+              )
+            }
           >
             {endless ? 'RUN AGAIN' : 'RETRY (R)'}
           </button>

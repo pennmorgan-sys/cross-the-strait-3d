@@ -7,6 +7,7 @@ import {
   DESPAWN_BEHIND,
   PICKUP_RADIUS,
   POWERUP_SPAWN_CHANCE,
+  MAX_ACTIVE,
 } from '../constants'
 import {
   runtime,
@@ -22,7 +23,19 @@ import { getCaps, perfState } from '../systems/performance'
 import { glowTexture } from '../systems/glow'
 import type { PowerUpType } from '../types'
 
-const POOL = 18
+const POOL = MAX_ACTIVE.SUPPLIES + 2
+
+const PICKUP_GEOM = {
+  crate: new THREE.BoxGeometry(1.85, 1.85, 1.85),
+  corner: new THREE.BoxGeometry(0.28, 0.28, 0.28),
+  panelWide: new THREE.BoxGeometry(1.95, 0.38, 1.55),
+  panelSide: new THREE.BoxGeometry(1.95, 0.32, 1.45),
+  stripe: new THREE.BoxGeometry(1.2, 0.14, 0.08),
+  bolt: new THREE.BoxGeometry(0.12, 0.55, 0.12),
+  orb: new THREE.IcosahedronGeometry(0.72, 0),
+  orbRing: new THREE.TorusGeometry(1.05, 0.1, 8, 24),
+  orbHalo: new THREE.RingGeometry(1.05, 1.3, 28),
+}
 
 const POWER_WEIGHTS: [PowerUpType, number][] = [
   ['shield', 4],
@@ -128,6 +141,13 @@ export default function Pickups() {
       opacity: 0.35,
       depthWrite: false,
     })
+    const outline = new THREE.MeshBasicMaterial({
+      color: '#22d3ee',
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })
     const sparkleMat = new THREE.SpriteMaterial({
       map: glowTexture(),
       color: '#fef9c3',
@@ -136,7 +156,7 @@ export default function Pickups() {
       depthWrite: false,
       opacity: 0.85,
     })
-    return { gold, panel, metal, bolt, stripe, waterRing, shadowDisc, sparkleMat }
+    return { gold, panel, metal, bolt, stripe, waterRing, shadowDisc, sparkleMat, outline }
   }, [])
 
   function activeCount() {
@@ -294,12 +314,12 @@ export default function Pickups() {
         if (outline) {
           ;(outline.material as THREE.MeshBasicMaterial).opacity = 0.4 + pulse * 0.35
         }
-        if (perfState.tier !== 'mobile') {
+        if (perfState.tier === 'high') {
           for (let s = 13; s <= 15; s++) {
             const sp = crate.current[i]!.children[s] as THREE.Sprite | undefined
             if (sp) {
-              sp.visible = pulse > 0.72
-              sp.scale.setScalar(0.35 + pulse * 0.25)
+              sp.visible = pulse > 0.78
+              sp.scale.setScalar(0.32 + pulse * 0.22)
             }
           }
         }
@@ -353,9 +373,7 @@ export default function Pickups() {
               <ringGeometry args={[1.05, 1.28, perfState.tier === 'mobile' ? 14 : 28]} />
               <primitive object={mats.waterRing} attach="material" />
             </mesh>
-            <mesh material={mats.gold}>
-              <boxGeometry args={[1.85, 1.85, 1.85]} />
-            </mesh>
+            <mesh geometry={PICKUP_GEOM.crate} material={mats.gold} />
             {(
               [
                 [-0.95, 0.95, 0.95],
@@ -364,35 +382,33 @@ export default function Pickups() {
                 [0.95, 0.95, -0.95],
               ] as const
             ).map((pos, j) => (
-              <mesh key={`c-${j}`} position={[...pos]} material={mats.metal}>
-                <boxGeometry args={[0.28, 0.28, 0.28]} />
-              </mesh>
-            ))}
-            <mesh position={[0, 0.2, 0]} material={mats.panel}>
-              <boxGeometry args={[1.95, 0.38, 1.55]} />
-            </mesh>
-            <mesh position={[0, -0.15, 0]} rotation={[0, Math.PI / 2, 0]} material={mats.panel}>
-              <boxGeometry args={[1.95, 0.32, 1.45]} />
-            </mesh>
-            <mesh position={[0, 0.55, 0.93]} material={mats.stripe}>
-              <boxGeometry args={[1.2, 0.14, 0.08]} />
-            </mesh>
-            <mesh position={[0, 0.1, 0]} material={mats.bolt}>
-              <boxGeometry args={[0.12, 0.55, 0.12]} />
-            </mesh>
-            <mesh position={[0, 0.1, 0]} rotation={[0, Math.PI / 2, 0]} material={mats.bolt}>
-              <boxGeometry args={[0.12, 0.55, 0.12]} />
-            </mesh>
-            <mesh scale={[1.05, 1.05, 1.05]}>
-              <boxGeometry args={[1.85, 1.85, 1.85]} />
-              <meshBasicMaterial
-                color="#22d3ee"
-                transparent
-                opacity={0.5}
-                side={THREE.BackSide}
-                depthWrite={false}
+              <mesh
+                key={`c-${j}`}
+                position={[...pos]}
+                geometry={PICKUP_GEOM.corner}
+                material={mats.metal}
               />
-            </mesh>
+            ))}
+            <mesh position={[0, 0.2, 0]} geometry={PICKUP_GEOM.panelWide} material={mats.panel} />
+            <mesh
+              position={[0, -0.15, 0]}
+              rotation={[0, Math.PI / 2, 0]}
+              geometry={PICKUP_GEOM.panelSide}
+              material={mats.panel}
+            />
+            <mesh position={[0, 0.55, 0.93]} geometry={PICKUP_GEOM.stripe} material={mats.stripe} />
+            <mesh position={[0, 0.1, 0]} geometry={PICKUP_GEOM.bolt} material={mats.bolt} />
+            <mesh
+              position={[0, 0.1, 0]}
+              rotation={[0, Math.PI / 2, 0]}
+              geometry={PICKUP_GEOM.bolt}
+              material={mats.bolt}
+            />
+            <mesh
+              scale={[1.05, 1.05, 1.05]}
+              geometry={PICKUP_GEOM.crate}
+              material={mats.outline}
+            />
             {(
               [
                 [0.9, 1.1, 0.4],
@@ -412,8 +428,7 @@ export default function Pickups() {
             }}
             visible={false}
           >
-            <mesh>
-              <icosahedronGeometry args={[0.72, 0]} />
+            <mesh geometry={PICKUP_GEOM.orb}>
               <meshStandardMaterial
                 color="#3b82f6"
                 emissive="#3b82f6"
@@ -422,12 +437,14 @@ export default function Pickups() {
                 roughness={0.15}
               />
             </mesh>
-            <mesh rotation={[Math.PI / 2.4, 0, 0]}>
-              <torusGeometry args={[1.05, 0.1, 8, 24]} />
+            <mesh rotation={[Math.PI / 2.4, 0, 0]} geometry={PICKUP_GEOM.orbRing}>
               <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1.4} />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
-              <ringGeometry args={[1.05, 1.3, 28]} />
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[0, -0.4, 0]}
+              geometry={PICKUP_GEOM.orbHalo}
+            >
               <meshBasicMaterial color="#60a5fa" transparent opacity={0.65} depthWrite={false} />
             </mesh>
           </group>

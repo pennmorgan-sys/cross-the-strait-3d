@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 /** HUD meters use CSS transitions (see index.css .bar > span) — no per-frame rAF. */
 
 export function SmoothBar({
@@ -18,5 +20,22 @@ export function SmoothScore({
   target: number
   className?: string
 }) {
-  return <div className={className}>{Math.round(target).toLocaleString()}</div>
+  const [shown, setShown] = useState(target)
+  const val = useRef(target)
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const diff = target - val.current
+      if (Math.abs(diff) < 0.55) {
+        val.current = target
+        setShown(target)
+        return
+      }
+      val.current += diff * 0.38
+      setShown(Math.round(val.current))
+    }, 48)
+    return () => clearInterval(id)
+  }, [target])
+
+  return <div className={className}>{shown.toLocaleString()}</div>
 }

@@ -4,6 +4,7 @@ export type Screen =
   | 'intro'
   | 'menu'
   | 'levels'
+  | 'delivery'
   | 'briefing'
   | 'playing'
   | 'gameOver'
@@ -52,6 +53,8 @@ export interface LevelConfig {
   maxVisibleSupplies?: number
   /** Cap for scripted supply burst events */
   specialSupplyBurstMax?: number
+  /** No bombs, mines, patrols, or combat surprises — escort / delivery only */
+  peaceful?: boolean
 }
 
 export interface BestRecord {
@@ -84,6 +87,10 @@ export interface HudSnapshot {
   endlessDistance?: number
   endlessBest?: number
   isEndless?: boolean
+  /** Lateral position for minimap (-STRAIT_HALF_WIDTH..STRAIT_HALF_WIDTH) */
+  playerX?: number
+  deliveryCountry?: string
+  deliveryFlag?: string
 }
 
 export interface RunStats {

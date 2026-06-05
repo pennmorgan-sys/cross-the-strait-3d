@@ -6,9 +6,11 @@ import {
   SPAWN_AHEAD,
   DESPAWN_BEHIND,
   NEAR_MISS_DIST,
+  MINE_SPAWN_MULT,
   STRAIT_HALF_WIDTH,
   TANKER_HALF_W,
   TANKER_HALF_L,
+  MAX_ACTIVE,
 } from '../constants'
 import { runtime, damage, applyOil, nearMiss, minesweeperActive } from '../runtime'
 import { quickWaveAt } from '../waves'
@@ -16,7 +18,7 @@ import { clamp, rand, damp } from '../systems/math'
 import { getCaps, perfState } from '../systems/performance'
 import type { ObstacleKind } from '../types'
 
-const POOL = 30
+const POOL = MAX_ACTIVE.HAZARDS + 2
 
 interface Hazard {
   state: 'idle' | 'active'
@@ -73,6 +75,7 @@ export default function Hazards() {
   const lastSpawnZ = useRef(0)
   const seeded = useRef(false)
   const slots = useMemo(() => Array.from({ length: POOL }, (_, i) => i), [])
+  const liteHazards = perfState.tier === 'mobile'
 
   function freeSlot() {
     return data.current.find((h) => h.state === 'idle')
@@ -104,7 +107,7 @@ export default function Hazards() {
     const r = Math.random()
     if (level.cargo && r < 0.22) return 'cargo'
     if (level.id >= 3 && r < 0.26) return 'oil'
-    if (Math.random() < level.mineBias) return 'mine'
+    if (Math.random() < level.mineBias * MINE_SPAWN_MULT) return 'mine'
     if (level.patrol && Math.random() < 0.5) return 'patrol'
     return 'debris'
   }
@@ -118,13 +121,17 @@ export default function Hazards() {
     } else {
       spawn(kind, rand(-7, 7), z)
       // Higher levels add a second obstacle, leaving a gap to thread.
-      if (level.id >= 2 && Math.random() < 0.48) {
+      if (level.id >= 2 && Math.random() < 0.34) {
         const k2 = chooseKind()
-        if (k2 !== 'cargo') spawn(k2, rand(-7, 7), z - rand(4, 9))
+        if (k2 !== 'cargo' && !(kind === 'mine' && k2 === 'mine')) {
+          spawn(k2, rand(-7, 7), z - rand(4, 9))
+        }
       }
-      if (level.id >= 4 && Math.random() < 0.36) {
+      if (level.id >= 5 && Math.random() < 0.22) {
         const k3 = chooseKind()
-        if (k3 !== 'cargo') spawn(k3, rand(-7.5, 7.5), z - rand(10, 15))
+        if (k3 !== 'cargo' && k3 !== 'mine') {
+          spawn(k3, rand(-7.5, 7.5), z - rand(10, 15))
+        }
       }
     }
   }
@@ -280,53 +287,56 @@ export default function Hazards() {
             visible={false}
           >
             <mesh>
-              <icosahedronGeometry args={[1.15, 0]} />
+              <icosahedronGeometry args={[1.05, liteHazards ? 0 : 1]} />
               <meshStandardMaterial
                 color="#2a3544"
-                emissive="#1e293b"
-                emissiveIntensity={0.15}
-                metalness={0.55}
-                roughness={0.45}
+                emissive="#334155"
+                emissiveIntensity={0.22}
+                metalness={0.5}
+                roughness={0.5}
               />
             </mesh>
-            {[
-              [0, 1, 0],
-              [0, -1, 0],
-              [1, 0, 0],
-              [-1, 0, 0],
-              [0, 0, 1],
-              [0, 0, -1],
-            ].map((d, k) => (
-              <mesh
-                key={k}
-                position={[d[0] * 1.15, d[1] * 1.15, d[2] * 1.15]}
-                rotation={[d[2] ? Math.PI / 2 : 0, 0, d[0] ? Math.PI / 2 : 0]}
-              >
-                <coneGeometry args={[0.24, 0.75, 6]} />
-                <meshStandardMaterial color="#4a5568" emissive="#64748b" emissiveIntensity={0.2} />
-              </mesh>
-            ))}
-            <mesh position={[0, 1.25, 0]}>
-              <sphereGeometry args={[0.28, 10, 10]} />
+            {!liteHazards &&
+              [
+                [0, 1, 0],
+                [0, -1, 0],
+                [1, 0, 0],
+                [-1, 0, 0],
+              ].map((d, k) => (
+                <mesh
+                  key={k}
+                  position={[d[0] * 1.05, d[1] * 1.05, d[2] * 1.05]}
+                  rotation={[d[2] ? Math.PI / 2 : 0, 0, d[0] ? Math.PI / 2 : 0]}
+                >
+                  <coneGeometry args={[0.22, 0.65, 5]} />
+                  <meshStandardMaterial color="#4a5568" emissive="#64748b" emissiveIntensity={0.2} />
+                </mesh>
+              ))}
+            <mesh position={[0, 1.15, 0]}>
+              <sphereGeometry args={[0.26, 8, 8]} />
               <meshStandardMaterial
                 color={COLORS.warningRed}
                 emissive={COLORS.warningRed}
-                emissiveIntensity={2}
+                emissiveIntensity={liteHazards ? 1.2 : 2}
               />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
-              <ringGeometry args={[1.5, 1.85, 32]} />
-              <meshBasicMaterial color={COLORS.warningRed} transparent opacity={0.75} depthWrite={false} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
+              <ringGeometry args={[1.35, 1.65, liteHazards ? 16 : 24]} />
+              <meshBasicMaterial color={COLORS.warningRed} transparent opacity={0.8} depthWrite={false} />
             </mesh>
-            <mesh position={[0, 2.2, 0]}>
-              <octahedronGeometry args={[0.35, 0]} />
-              <meshStandardMaterial
-                color="#fca5a5"
-                emissive={COLORS.warningRed}
-                emissiveIntensity={1.8}
-              />
-            </mesh>
-            <pointLight color={COLORS.warningRed} distance={10} intensity={2.4} />
+            {!liteHazards && (
+              <mesh position={[0, 1.85, 0]}>
+                <octahedronGeometry args={[0.3, 0]} />
+                <meshStandardMaterial
+                  color="#fca5a5"
+                  emissive={COLORS.warningRed}
+                  emissiveIntensity={1.4}
+                />
+              </mesh>
+            )}
+            {!liteHazards && getCaps().hazardLights && (
+              <pointLight color={COLORS.warningRed} distance={8} intensity={1.4} />
+            )}
           </group>
 
           {/* Patrol boat */}
