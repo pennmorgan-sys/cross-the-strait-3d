@@ -1,3 +1,4 @@
+import { AlertTriangle, BookOpen, Globe2, Keyboard, ListChecks, Settings, Ship } from 'lucide-react'
 import { useGame } from '../game/store'
 
 export default function MainMenu() {
@@ -13,51 +14,56 @@ export default function MainMenu() {
 
   return (
     <div className="overlay menu-overlay">
-      <div className="panel">
-        <p className="tagline">Oil Tanker Survival</p>
+      <div className="panel menu-panel">
+        <p className="tagline menu-eyebrow">Oil Tanker Survival</p>
         <h1 className="title">CROSS THE STRAIT</h1>
         <p className="menu-desc">
-          Escort an oil tanker through the Strait of Hormuz. Steer clear of mines and missiles,
-          grab supplies, and reach safe water — or chase a high score in Strait Run.
+          Escort an oil tanker through the Strait of Hormuz. Manage the route, survive the
+          corridor, and reach safe water.
         </p>
         {nightMode && <p className="menu-night-badge">NIGHT OPS ACTIVE</p>}
 
-        <div className="btn-col menu-buttons">
-          <button type="button" className="btn btn-lg gold" onClick={startEndlessRun}>
-            STRAIT RUN
+        <div className="menu-card-grid">
+          <button type="button" className="menu-card menu-card-primary" onClick={() => startMission(1)}>
+            <BookOpen size={22} aria-hidden="true" />
+            <span>STORY MISSIONS</span>
+            <small>Five fair escorts</small>
           </button>
-          <p className="menu-endless-hint">
-            Endless high score · Hormuz corridor · Best{' '}
-            <b>{endlessBest > 0 ? endlessBest.toLocaleString() : '—'}</b>
-          </p>
-          <button type="button" className="btn btn-lg teal" onClick={openDeliverySelect}>
-            WORLD DELIVERY
+          <button type="button" className="menu-card" onClick={openDeliverySelect}>
+            <Globe2 size={22} aria-hidden="true" />
+            <span>WORLD DELIVERY</span>
+            <small>Pick a port</small>
           </button>
-          <p className="menu-endless-hint">
-            Pick a country · minimap route · deliver oil after Hormuz
-          </p>
-          <button type="button" className="btn btn-lg" onClick={() => startMission(1)}>
-            STORY MISSIONS
+          <button type="button" className="menu-card" onClick={startEndlessRun}>
+            <Ship size={22} aria-hidden="true" />
+            <span>STRAIT RUN</span>
+            <small>Best {endlessBest > 0 ? endlessBest.toLocaleString() : '-'}</small>
           </button>
-          <button type="button" className="btn secondary" onClick={() => setScreen('levels')}>
+        </div>
+
+        <div className="menu-secondary-grid">
+          <button type="button" className="btn secondary menu-mode-action" onClick={() => setScreen('levels')}>
+            <ListChecks size={17} aria-hidden="true" />
             MISSION SELECT
           </button>
           <button type="button" className="btn danger menu-chaos" onClick={startChaos}>
+            <AlertTriangle size={17} aria-hidden="true" />
             CHAOS CHALLENGE
           </button>
-          <div className="menu-row-2">
-            <button type="button" className="btn secondary" onClick={openControls}>
-              CONTROLS
-            </button>
-            <button type="button" className="btn secondary" onClick={openSettings}>
-              SETTINGS
-            </button>
-          </div>
         </div>
 
-        <p className="brand-foot">
-          World Delivery · 8 ops · Strait Run · Chaos
-        </p>
+        <div className="menu-row-2">
+          <button type="button" className="btn secondary menu-utility-action" onClick={openControls}>
+            <Keyboard size={16} aria-hidden="true" />
+            CONTROLS
+          </button>
+          <button type="button" className="btn secondary menu-utility-action" onClick={openSettings}>
+            <Settings size={16} aria-hidden="true" />
+            SETTINGS
+          </button>
+        </div>
+
+        <p className="brand-foot">5 story ops / world delivery / endurance run</p>
       </div>
     </div>
   )

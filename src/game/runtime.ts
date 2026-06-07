@@ -36,6 +36,7 @@ import {
 import { runProgressMilestones } from './progressMilestones'
 import { initAudio, sfx } from './systems/audio'
 import { perfState, resetPerfSession } from './systems/performance'
+import { freshHazardUsage, getHazardBudget } from './hazardBudgets'
 
 const now = () => performance.now()
 
@@ -48,10 +49,12 @@ export const runtime = {
   forwardSpeed: 22,
 
   tankerRoute: 'china' as TankerRouteId,
+  tankerLabel: 'CHINA ROUTE TANKER',
   deliveryDestinationId: null as DeliveryDestinationId | null,
   tankerProgress: 0,
   interceptEvent: false,
   interceptTimer: 0,
+  hazardBudgetUsed: freshHazardUsage(),
 
   minesweeperReady: true,
   minesweeperPulseUntil: 0,
@@ -115,6 +118,52 @@ export const isOiled = () => now() < runtime.oilUntil
 export const skyFlash = () => clamp((runtime.flashUntil - now()) / 220, 0, 1)
 export const minesweeperActive = () => now() < runtime.minesweeperPulseUntil
 
+export function isCombatBudgetOpen() {
+  if (runtime.level.peaceful) return false
+  if (runtime.level.calmAfterProgress !== undefined && progress() >= runtime.level.calmAfterProgress) {
+    return false
+  }
+  return true
+}
+
+export function canSpawnBudgetedHazard(kind: 'mine' | 'patrol') {
+  if (!isCombatBudgetOpen()) return false
+  if (kind === 'mine' && runtime.level.id !== CHAOS_LEVEL_ID) return false
+  const budget = getHazardBudget(runtime.level.id)
+  if (!budget) return true
+  if (kind === 'mine') return runtime.hazardBudgetUsed.mines < budget.maxMines
+  return runtime.hazardBudgetUsed.patrolBoats < budget.maxPatrolBoats
+}
+
+export function consumeBudgetedHazard(kind: 'mine' | 'patrol') {
+  if (!canSpawnBudgetedHazard(kind)) return false
+  if (getHazardBudget(runtime.level.id)) {
+    if (kind === 'mine') runtime.hazardBudgetUsed.mines++
+    else runtime.hazardBudgetUsed.patrolBoats++
+  }
+  return true
+}
+
+export function canTriggerInterceptEvent() {
+  if (!isCombatBudgetOpen()) return false
+  const budget = getHazardBudget(runtime.level.id)
+  if (!budget) return true
+  return runtime.hazardBudgetUsed.interceptShips < budget.maxInterceptShips
+}
+
+export function canTriggerBombEvent() {
+  if (!isCombatBudgetOpen()) return false
+  const budget = getHazardBudget(runtime.level.id)
+  if (!budget) return true
+  return runtime.hazardBudgetUsed.bombEvents < budget.maxBombEvents
+}
+
+export function consumeBombEvent() {
+  if (!canTriggerBombEvent()) return false
+  if (getHazardBudget(runtime.level.id)) runtime.hazardBudgetUsed.bombEvents++
+  return true
+}
+
 export function progress() {
   if (isEndlessLevel(runtime.level.id)) {
     return clamp(runtime.endlessDistance / 6000, 0, 0.99)
@@ -132,7 +181,7 @@ export function endlessNm() {
 export function isFinalDash() {
   if (isEndlessLevel(runtime.level.id)) return false
   const lid = runtime.level.id
-  return (lid === 8 || lid === CHAOS_LEVEL_ID) && progress() > 0.78
+  return (lid === 5 || lid === CHAOS_LEVEL_ID) && progress() > 0.78
 }
 
 export function isSafeWater() {
@@ -154,19 +203,32 @@ function resetEndlessEscalation() {
 
 function tickEndlessEscalation(d: number) {
   runtime.endlessDistance += d
-  const tier = Math.floor(runtime.endlessDistance / 320)
+  runtime.openingClock += d / Math.max(1, runtime.level.speed)
+  const elapsed = runtime.openingClock
+  const tier = Math.max(0, Math.floor((elapsed - 45) / 45) + 1)
 
-  runtime.level.speed = ENDLESS_LEVEL.speed + tier * 1.15
-  runtime.level.bombInterval = Math.max(0.55, ENDLESS_LEVEL.bombInterval - tier * 0.045)
-  runtime.level.obstacleGap = Math.max(8, ENDLESS_LEVEL.obstacleGap - tier * 0.22)
-  runtime.level.mineBias = Math.min(0.28, ENDLESS_LEVEL.mineBias + tier * 0.008)
-  if (tier >= 2 && tier % 3 === 0) {
-    runtime.level.bombBurst = Math.min(4, ENDLESS_LEVEL.bombBurst + 1)
-  }
+  runtime.level.speed = ENDLESS_LEVEL.speed + Math.min(6, tier * 0.8)
+  runtime.level.bombInterval =
+    elapsed < 45
+      ? 48
+      : elapsed < 90
+        ? 28
+        : elapsed < 150
+          ? 22
+          : Math.max(14, 22 - Math.floor((elapsed - 150) / 45) * 1.5)
+  runtime.level.obstacleGap =
+    elapsed < 45
+      ? 180
+      : elapsed < 90
+        ? 155
+        : elapsed < 150
+          ? 135
+          : Math.max(95, 135 - Math.floor((elapsed - 150) / 45) * 8)
+  runtime.level.mineBias = 0
+  runtime.level.bombBurst = 1
 
   addScore(Math.max(1, Math.floor(d * 2.8)), false)
 
-  runtime.openingClock += d / Math.max(1, runtime.level.speed)
   tickSurpriseBanner()
 
   const nm = endlessNm()
@@ -174,7 +236,7 @@ function tickEndlessEscalation(d: number) {
     endlessBeatNm = nm
     if (nm > 0 && nm % 4 === 0) {
       runtime.incoming = Math.min(2.5, runtime.incoming + 0.9)
-      runtime.activeSurprise = 'STRAIT PRESSURE RISING'
+      runtime.activeSurprise = elapsed < 150 ? 'STRAIT RUN — EASY PACE' : 'STRAIT PRESSURE RISING'
       runtime.surpriseBannerUntil = now() + 2200
     }
   }
@@ -195,9 +257,11 @@ export function startLevel(id: number) {
   runtime.running = true
   runtime.deliveryDestinationId = dest?.id ?? null
   runtime.tankerRoute = briefing.tankerRoute
+  runtime.tankerLabel = dest?.tankerLabel ?? briefing.routeLabel
   runtime.tankerProgress = 0
   runtime.interceptEvent = false
   runtime.interceptTimer = 0
+  runtime.hazardBudgetUsed = freshHazardUsage()
   runtime.minesweeperPulseUntil = 0
   runtime.minesweeperCooldownUntil = 0
 
@@ -223,7 +287,7 @@ export function startLevel(id: number) {
   runtime.flashUntil = 0
   runtime.shield = false
   runtime.powerUp = null
-  runtime.minesweeperReady = level.id >= 3
+  runtime.minesweeperReady = level.id === CHAOS_LEVEL_ID
   runtime.shake = 0
   runtime.openingClock = 0
   runtime.openingFlags = {}
@@ -293,8 +357,10 @@ export function collectSupply() {
   addScore(100)
   addCombo(1)
   runtime.boost = clamp(runtime.boost + 0.35, 0, 1)
-  if (runtime.level.id >= 3) runtime.minesweeperReady = now() >= runtime.minesweeperCooldownUntil
-  useGame.getState().pushToast('+100 SUPPLY', 'good')
+  if (runtime.level.id === CHAOS_LEVEL_ID) {
+    runtime.minesweeperReady = now() >= runtime.minesweeperCooldownUntil
+  }
+  useGame.getState().pushToast('+ SUPPLIES', 'good')
   sfx.pickup()
 }
 
@@ -379,7 +445,7 @@ export function triggerMinesweeperPulse() {
   return true
 }
 
-export function usePowerUp() {
+export function activatePowerUp() {
   if (runtime.powerUp) {
     grantPowerUp(runtime.powerUp)
     runtime.powerUp = null
@@ -397,9 +463,12 @@ export function applyOil() {
 }
 
 export function triggerInterceptEvent() {
+  if (!canTriggerInterceptEvent()) return false
+  if (getHazardBudget(runtime.level.id)) runtime.hazardBudgetUsed.interceptShips++
   runtime.interceptEvent = true
   runtime.interceptTimer = 9 + Math.random() * 5
   useGame.getState().pushToast('INTERCEPT SHIPS INBOUND', 'bad')
+  return true
 }
 
 export function tickProgress(d: number) {
@@ -507,7 +576,7 @@ export function flushHud(force = false) {
     interceptEvent: runtime.interceptEvent,
     activeSurprise: runtime.activeSurprise,
     minesweeperReady:
-      runtime.level.id >= 3 &&
+      runtime.level.id === CHAOS_LEVEL_ID &&
       (runtime.powerUp === 'minesweeper' || now() >= runtime.minesweeperCooldownUntil),
     isEndless: isEndlessLevel(runtime.level.id),
     endlessDistance: isEndlessLevel(runtime.level.id) ? endlessNm() : undefined,
@@ -515,6 +584,9 @@ export function flushHud(force = false) {
     playerX: runtime.player.x,
     deliveryCountry: dest?.country,
     deliveryFlag: dest?.flag,
+    deliveryPort: dest?.port,
+    tankerLabel: dest?.tankerLabel,
+    routeName: dest?.routeName,
   }
   useGame.getState().setHud(snap)
 }
@@ -531,14 +603,21 @@ function bannerText(): string {
     if (d) return `DELIVERY — ${d.flag} ${d.country.toUpperCase()}`
     return 'WORLD DELIVERY — HOLD THE LANE'
   }
+  if (
+    runtime.level.calmAfterProgress !== undefined &&
+    progress() >= runtime.level.calmAfterProgress
+  ) {
+    const d = getDeliveryDestination(runtime.deliveryDestinationId)
+    return d ? `OPEN OCEAN — ${d.port.toUpperCase()}` : 'OPEN OCEAN'
+  }
   if (runtime.interceptEvent) return 'INTERCEPT SHIPS INBOUND'
   if (isSafeWater()) {
     const d = getDeliveryDestination(runtime.deliveryDestinationId)
     return d ? `OPEN OCEAN — ${d.country.toUpperCase()} LEG` : 'SAFE WATER AHEAD'
   }
   if (isFinalDash()) return 'FINAL ESCORT'
-  if (runtime.level.id === 4) return 'MISSILE STORM'
-  if (runtime.level.id === 3) return 'MINE BELT AHEAD'
+  if (runtime.level.id === 4) return 'MISSILE CORRIDOR'
+  if (runtime.level.id === 3) return 'ESCORT SCREEN'
   if (runtime.incoming > 0) return 'MISSILE WARNING'
   return ''
 }

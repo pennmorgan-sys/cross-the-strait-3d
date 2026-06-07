@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import * as THREE from 'three'
@@ -17,10 +17,9 @@ interface MapLabelDef {
 const MAP_LABELS: MapLabelDef[] = [
   { text: 'IRAN COAST', position: [-46, 5.5, 18], color: '#d4a574', fontSize: 1.15 },
   { text: 'OMAN COAST', position: [46, 5.5, 18], color: '#f0e0b8', fontSize: 1.15 },
-  { text: 'UAE SHIPPING ROUTE', position: [52, 7, -115], color: '#fbbf24', fontSize: 0.92 },
-  { text: 'STRAIT OF HORMUZ', position: [0, 13, -24], color: '#22d3ee', fontSize: 1.35 },
-  { text: 'TANKER ROUTE', position: [0, 3.2, -14], color: COLORS.tealWake, fontSize: 0.88 },
-  { text: 'SAFE WATER', position: [0, 4.2, -105], color: COLORS.radarGreen, fontSize: 1.05, pulseSafe: true },
+  { text: 'UAE SHIPPING ROUTE', position: [52, 7, -115], color: '#fbbf24', fontSize: 0.72 },
+  { text: 'STRAIT OF HORMUZ', position: [0, 11, -30], color: '#22d3ee', fontSize: 0.88 },
+  { text: 'SAFE WATER', position: [0, 4.2, -105], color: COLORS.radarGreen, fontSize: 0.72, pulseSafe: true },
   { text: 'GULF OF OMAN', position: [0, 9.5, -195], color: '#cbd5e1', fontSize: 1.2 },
   { text: 'PERSIAN GULF', position: [0, 9.5, 125], color: '#cbd5e1', fontSize: 1.2 },
 ]
@@ -70,14 +69,16 @@ export default function StraitMapLabels({ peaceful = false }: { peaceful?: boole
   const scale = mobile ? 0.72 : 1
   const laneStripeGeo = useMemo(() => new THREE.PlaneGeometry(4.8, 0.35), [])
   const labels = useMemo(() => {
-    const list = mobile
+    return mobile
       ? MAP_LABELS.filter((l) =>
-          ['IRAN COAST', 'OMAN COAST', 'STRAIT OF HORMUZ', 'TANKER ROUTE'].includes(l.text),
+          ['IRAN COAST', 'OMAN COAST', 'STRAIT OF HORMUZ'].includes(l.text),
         )
       : MAP_LABELS
-    perfState.counts.labels = list.length
-    return list
   }, [mobile])
+
+  useEffect(() => {
+    perfState.counts.labels = labels.length
+  }, [labels.length])
 
   useFrame(() => {
     if (root.current) root.current.position.z = runtime.player.z

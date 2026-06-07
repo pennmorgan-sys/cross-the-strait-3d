@@ -1,29 +1,28 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { Object3D } from 'three'
 import { Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
 import { runtime } from '../runtime'
 import { getCaps, perfState } from '../systems/performance'
-import { cityTextures, dayCityTextures } from '../systems/city'
 import { glowTexture } from '../systems/glow'
 
 type Side = -1 | 1
 
 const PALETTE = {
   iran: {
-    rock: '#5c4a38',
-    cliff: '#4a3828',
-    scrub: '#7a6b4f',
-    sand: '#c9a66b',
-    beach: '#e8d4a8',
+    rock: '#7C5A3A',
+    cliff: '#6B4A31',
+    scrub: '#9E7B4F',
+    sand: '#C89F65',
+    beach: '#E0C28C',
   },
   oman: {
-    rock: '#8b7355',
-    cliff: '#6d5a42',
-    scrub: '#a89068',
-    sand: '#d4b87a',
-    beach: '#f0e0b8',
+    rock: '#B48A58',
+    cliff: '#8C6842',
+    scrub: '#C39B62',
+    sand: '#D9B978',
+    beach: '#E9D09B',
   },
 } as const
 
@@ -37,17 +36,16 @@ function seeded(seed: number) {
 
 function useCoastMaterials(nightMode: boolean) {
   return useMemo(() => {
-    const tex = nightMode ? cityTextures() : dayCityTextures()
-    const buildingMats = tex.map(
-      (t) =>
+    const colors = ['#C89F65', '#A77C4E', '#7C5A3A', '#6B7280', '#4B5563']
+    const buildingMats = colors.map(
+      (color) =>
         new THREE.MeshStandardMaterial({
-          map: t,
-          emissive: new THREE.Color('#ffffff'),
-          emissiveMap: t,
-          emissiveIntensity: nightMode ? 1.15 : 0.08,
-          color: nightMode ? '#141a24' : '#b8a88c',
-          roughness: 0.88,
-          metalness: 0.06,
+          color,
+          roughness: color === '#6B7280' || color === '#4B5563' ? 0.55 : 0.92,
+          metalness: color === '#6B7280' || color === '#4B5563' ? 0.34 : 0.04,
+          flatShading: true,
+          emissive: nightMode ? new THREE.Color('#2a1a0a') : new THREE.Color('#000000'),
+          emissiveIntensity: nightMode ? 0.08 : 0,
         }),
     )
     return { buildingMats }
@@ -138,30 +136,21 @@ function genSettlementBuildings(
     const spreadZ = set.hasRefinery ? 14 : 20
     const spreadInland = set.hasRefinery ? 10 : 14
 
-    for (let i = 0; i < set.buildings; i++) {
-      const h = set.hasRefinery ? r(5, 14) : r(7, 24)
+    const count = Math.max(2, Math.ceil(set.buildings * (set.hasTerminal ? 0.55 : 0.42)))
+    for (let i = 0; i < count; i++) {
+      const h = set.hasRefinery || set.hasTerminal ? r(2.5, 8) : r(2.2, 5.5)
       out.push({
         x: baseX + coastInland * r(0, spreadInland),
         y: h / 2,
         z: set.z + r(-spreadZ, spreadZ),
-        w: r(4, set.hasRefinery ? 8 : 10),
-        d: r(4, 9),
+        w: r(3.5, set.hasRefinery ? 7 : 8),
+        d: r(3.5, 8),
         h,
-        mat: Math.floor(r(0, mats.length)),
+        mat: set.hasRefinery || set.hasTerminal ? Math.floor(r(2, mats.length)) : Math.floor(r(0, 3)),
       })
     }
   }
   return out
-}
-
-function genRocks(side: Side): Array<{ x: number; y: number; z: number; s: number }> {
-  const r = seeded(side === -1 ? 991 : 992)
-  return Array.from({ length: 28 }, () => ({
-    x: side * r(14, 22) + r(-3, 3),
-    y: r(0.3, 1.2),
-    z: r(-290, 290),
-    s: r(0.4, 1.8),
-  }))
 }
 
 function genHills(side: Side): Array<{ x: number; y: number; z: number; sx: number; sy: number; sz: number }> {
@@ -277,75 +266,6 @@ function genIranSmokePlumes(coastX: number, mobile: boolean) {
   }))
 }
 
-function ChannelBuoys({
-  coastX,
-  side,
-  count,
-  nightMode,
-}: {
-  coastX: number
-  side: Side
-  count: number
-  nightMode: boolean
-}) {
-  const whiteRef = useRef<THREE.InstancedMesh>(null)
-  const redRef = useRef<THREE.InstancedMesh>(null)
-  const geo = useMemo(() => new THREE.CylinderGeometry(0.35, 0.4, 1.2, 8), [])
-  const matWhite = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#f8fafc',
-        emissive: '#e2e8f0',
-        emissiveIntensity: nightMode ? 0.6 : 0.15,
-      }),
-    [nightMode],
-  )
-  const matRed = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: '#ef4444',
-        emissive: '#ef4444',
-        emissiveIntensity: nightMode ? 0.6 : 0.15,
-      }),
-    [nightMode],
-  )
-  const matrix = useMemo(() => new THREE.Matrix4(), [])
-  const pos = useMemo(() => new THREE.Vector3(), [])
-  const quat = useMemo(() => new THREE.Quaternion(), [])
-  const scl = useMemo(() => new THREE.Vector3(1, 1, 1), [])
-  const whiteSlots = Math.ceil(count / 2)
-  const redSlots = Math.floor(count / 2)
-
-  useLayoutEffect(() => {
-    let wi = 0
-    let ri = 0
-    for (let i = 0; i < count; i++) {
-      pos.set(coastX - side * 1.2, 0.9, i * 55 - 250)
-      matrix.compose(pos, quat, scl)
-      if (i % 2 === 0) {
-        whiteRef.current?.setMatrixAt(wi++, matrix)
-      } else {
-        redRef.current?.setMatrixAt(ri++, matrix)
-      }
-    }
-    if (whiteRef.current) {
-      whiteRef.current.count = wi
-      whiteRef.current.instanceMatrix.needsUpdate = true
-    }
-    if (redRef.current) {
-      redRef.current.count = ri
-      redRef.current.instanceMatrix.needsUpdate = true
-    }
-  }, [count, coastX, side, matrix, pos, quat, scl])
-
-  return (
-    <>
-      <instancedMesh ref={whiteRef} args={[geo, matWhite, whiteSlots]} />
-      <instancedMesh ref={redRef} args={[geo, matRed, redSlots]} />
-    </>
-  )
-}
-
 function genIranCliffRocks(side: Side, coastX: number, coastLen: number, mobile: boolean) {
   const r = seeded(66104)
   const n = mobile ? 12 : 24
@@ -453,6 +373,8 @@ function DecorLauncher({
   const flash = useRef(0)
   const smoke = useRef(0)
   const timer = useRef(flashSeed)
+  const flashSprite = useRef<THREE.Sprite>(null)
+  const smokeSprite = useRef<THREE.Sprite>(null)
   useFrame((_, dt) => {
     if (!runtime.simActive) return
     timer.current -= dt
@@ -463,43 +385,48 @@ function DecorLauncher({
     }
     flash.current = Math.max(0, flash.current - dt * 2.2)
     smoke.current = Math.max(0, smoke.current - dt * 0.35)
+    if (flashSprite.current) {
+      flashSprite.current.visible = flash.current > 0.01
+      ;(flashSprite.current.material as THREE.SpriteMaterial).opacity = flash.current
+    }
+    if (smokeSprite.current) {
+      smokeSprite.current.visible = smoke.current > 0.01
+      smokeSprite.current.position.y = 4 + (1.2 - smoke.current) * 6
+      ;(smokeSprite.current.material as THREE.SpriteMaterial).opacity = smoke.current * 0.45
+    }
   })
   return (
     <group position={[x, y, z]}>
       <mesh position={[0, 0.5, 0]} castShadow>
         <boxGeometry args={[2.6, 1, 3.4]} />
-        <meshStandardMaterial color="#1e242c" metalness={0.65} roughness={0.35} />
+        <meshStandardMaterial color="#4B5563" metalness={0.55} roughness={0.46} flatShading />
       </mesh>
       {[-0.55, 0, 0.55].map((lx, i) => (
         <mesh key={i} position={[lx, 1.35, -0.4]} rotation={[-0.55, 0, 0]}>
           <cylinderGeometry args={[0.15, 0.15, 2.1, 6]} />
-          <meshStandardMaterial color="#0f1419" metalness={0.75} />
+          <meshStandardMaterial color="#6B7280" metalness={0.72} roughness={0.36} />
         </mesh>
       ))}
       <pointLight color="#ef4444" intensity={0.3} distance={6} />
-      {flash.current > 0.01 && (
-        <sprite position={[0, 2.5, -1]} scale={[2.5, 2.5, 1]}>
-          <spriteMaterial
-            map={glowTexture()}
-            color="#f97316"
-            transparent
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            opacity={flash.current}
-          />
-        </sprite>
-      )}
-      {smoke.current > 0.01 && (
-        <sprite position={[0, 4 + (1.2 - smoke.current) * 6, -1.5]} scale={[3, 5, 1]}>
-          <spriteMaterial
-            map={glowTexture()}
-            color="#6b7280"
-            transparent
-            opacity={smoke.current * 0.45}
-            depthWrite={false}
-          />
-        </sprite>
-      )}
+      <sprite ref={flashSprite} position={[0, 2.5, -1]} scale={[2.5, 2.5, 1]} visible={false}>
+        <spriteMaterial
+          map={glowTexture()}
+          color="#f97316"
+          transparent
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          opacity={0}
+        />
+      </sprite>
+      <sprite ref={smokeSprite} position={[0, 4, -1.5]} scale={[3, 5, 1]} visible={false}>
+        <spriteMaterial
+          map={glowTexture()}
+          color="#6b7280"
+          transparent
+          opacity={0}
+          depthWrite={false}
+        />
+      </sprite>
     </group>
   )
 }
@@ -585,7 +512,6 @@ function CoastSide({
     () => genSettlementBuildings(side, buildingMats),
     [side, buildingMats],
   )
-  const rocks = useMemo(() => genRocks(side), [side])
   const hills = useMemo(() => (isIran ? genHills(side) : []), [isIran, side])
   const dunes = useMemo(
     () => (!isIran ? genOmanDunes(coastX, side, mobile) : []),
@@ -618,12 +544,12 @@ function CoastSide({
     [isIran, settlements, coastX, side],
   )
   const cliffRockGeo = useMemo(() => new THREE.BoxGeometry(1, 1.2, 0.8), [])
-  const hillGeo = useMemo(() => new THREE.BoxGeometry(1, 0.55, 1.4), [])
-  const duneGeo = useMemo(() => new THREE.BoxGeometry(1, 0.35, 1.2), [])
+  const hillGeo = useMemo(() => new THREE.DodecahedronGeometry(0.72, 0), [])
+  const duneGeo = useMemo(() => new THREE.DodecahedronGeometry(0.6, 0), [])
   const mtnColors = useMemo(() => {
     const base = isIran
-      ? ['#3d3228', '#4a3a2e', '#352a22', '#5c4a38']
-      : ['#5a4d3a', '#6d5a42', '#4a4032', '#7a6a52']
+      ? ['#7C5A3A', '#8B6540', '#5F4430', '#C89F65']
+      : ['#B48A58', '#C39B62', '#8C6842', '#D9B978']
     return base.map((hex) => new THREE.Color(hex))
   }, [isIran])
   const fires = useMemo(() => {
@@ -679,7 +605,7 @@ function CoastSide({
       {isIran && (
         <mesh position={[coastX - side * 4, 5, 0]}>
           <boxGeometry args={[2, 4, coastLen]} />
-          <meshStandardMaterial color="#3d3020" roughness={1} flatShading />
+          <meshStandardMaterial color="#3C2F2A" roughness={1} flatShading />
         </mesh>
       )}
 
@@ -762,11 +688,7 @@ function CoastSide({
             receiveShadow={shadow}
           >
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial
-              color={mtnColors[0]}
-              roughness={1}
-              flatShading
-            />
+            <meshStandardMaterial color={mtnColors[0]} roughness={1} flatShading />
           </mesh>
           {range.peaks.map((p, pi) => (
             <group
@@ -804,24 +726,16 @@ function CoastSide({
         </group>
       ))}
 
-      {/* Shore rocks — dense on Iran, sparse on Oman */}
-      {(isIran ? rocks : rocks.filter((_, i) => i % 3 === 0)).map((rk, i) => (
-        <mesh key={`rk-${i}`} position={[rk.x, rk.y, rk.z]} scale={rk.s * (isIran ? 1 : 0.7)}>
-          <dodecahedronGeometry args={[0.5, 0]} />
-          <meshStandardMaterial color={palette.cliff} roughness={0.9} flatShading />
-        </mesh>
-      ))}
-
       {/* Town / port clusters only — empty coast stays desert + cliffs */}
       {buildings.map((b, i) => (
         <mesh
           key={`bld-${i}`}
           position={[b.x, b.y, b.z]}
-          material={buildingMats[b.mat]}
           castShadow={shadow}
           receiveShadow={shadow}
         >
           <boxGeometry args={[b.w, b.h, b.d]} />
+          <primitive object={buildingMats[b.mat]} attach="material" />
         </mesh>
       ))}
 
@@ -865,11 +779,11 @@ function CoastSide({
               <mesh position={[0, 3.5, 0]} castShadow={shadow}>
                 <cylinderGeometry args={[3.2, 3.5, 7, 16]} />
                 <meshStandardMaterial
-                  color="#1e293b"
-                  metalness={0.55}
-                  roughness={0.35}
-                  emissive={nightMode ? '#f97316' : '#000000'}
-                  emissiveIntensity={nightMode ? 0.2 : 0}
+                color="#6B7280"
+                metalness={0.55}
+                roughness={0.44}
+                emissive={nightMode ? '#f97316' : '#000000'}
+                emissiveIntensity={nightMode ? 0.2 : 0}
                 />
               </mesh>
               <mesh position={[0, 7.2, 0]}>
@@ -886,9 +800,9 @@ function CoastSide({
             <mesh position={[0, t.h / 2, 0]} castShadow={shadow}>
               <cylinderGeometry args={[t.r, t.r * 1.05, t.h, 14]} />
               <meshStandardMaterial
-                color="#1e293b"
+                color="#6B7280"
                 metalness={0.6}
-                roughness={0.3}
+                roughness={0.42}
                 emissive={nightMode ? '#fbbf24' : '#000000'}
                 emissiveIntensity={nightMode ? 0.15 : 0}
               />
@@ -928,33 +842,27 @@ function CoastSide({
           .map(({ key, x, z, w, h, d }) => (
             <mesh key={key} position={[x, h / 2, z]} castShadow={shadow}>
               <boxGeometry args={[w, h, d]} />
-              <meshStandardMaterial color="#94a3b8" roughness={0.85} metalness={0.12} />
+              <meshStandardMaterial color="#B8A172" roughness={0.86} metalness={0.06} flatShading />
             </mesh>
           ))}
 
-      {/* Dock piers — extended tanker berths on Oman terminals */}
+      {/* Dock piers — empty berths only, no decorative tankers */}
       {settlements
         .filter((s) => s.pier)
         .map((s, i) => {
-          const tanker = !isIran && s.hasTerminal
+          const extendedBerth = !isIran && s.hasTerminal
           return (
             <group
               key={`pier-${i}`}
-              position={[coastX - side * (tanker ? 4 : 3), 0.2, s.z]}
+              position={[coastX - side * (extendedBerth ? 4 : 3), 0.2, s.z]}
             >
               <mesh castShadow={shadow} receiveShadow={shadow}>
-                <boxGeometry args={[tanker ? 5 : 3, 0.5, tanker ? 28 : 14]} />
+                <boxGeometry args={[extendedBerth ? 5 : 3, 0.5, extendedBerth ? 28 : 14]} />
                 <meshStandardMaterial color="#6b7280" metalness={0.35} roughness={0.6} />
               </mesh>
-              {tanker && (
-                <mesh position={[0, 0.55, 10]}>
-                  <boxGeometry args={[4.5, 0.35, 12]} />
-                  <meshStandardMaterial color="#475569" metalness={0.4} />
-                </mesh>
-              )}
-              <mesh position={[0, 1.2, tanker ? -8 : -5]}>
-                <boxGeometry args={[tanker ? 4 : 2.5, 2, 0.4]} />
-                <meshStandardMaterial color="#4b5563" />
+              <mesh position={[0, 1.2, extendedBerth ? -8 : -5]}>
+                <boxGeometry args={[extendedBerth ? 4 : 2.5, 2, 0.4]} />
+                <meshStandardMaterial color="#4B5563" />
               </mesh>
             </group>
           )
@@ -981,13 +889,6 @@ function CoastSide({
       {iranSmoke.map((s, i) => (
         <SmokePlume key={`smoke-${i}`} x={s.x} z={s.z} phase={s.phase} maxH={s.h} />
       ))}
-
-      <ChannelBuoys
-        coastX={coastX}
-        side={side}
-        count={mobile ? 5 : 10}
-        nightMode={nightMode}
-      />
 
       {/* Ground-level fire glow (night / conflict) */}
       {fires.map((f, i) => (

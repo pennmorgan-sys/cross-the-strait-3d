@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   COLORS,
@@ -25,17 +26,21 @@ import type { PowerUpType } from '../types'
 
 const POOL = MAX_ACTIVE.SUPPLIES + 2
 
-const PICKUP_GEOM = {
-  crate: new THREE.BoxGeometry(1.85, 1.85, 1.85),
-  corner: new THREE.BoxGeometry(0.28, 0.28, 0.28),
-  panelWide: new THREE.BoxGeometry(1.95, 0.38, 1.55),
-  panelSide: new THREE.BoxGeometry(1.95, 0.32, 1.45),
-  stripe: new THREE.BoxGeometry(1.2, 0.14, 0.08),
-  bolt: new THREE.BoxGeometry(0.12, 0.55, 0.12),
-  orb: new THREE.IcosahedronGeometry(0.72, 0),
-  orbRing: new THREE.TorusGeometry(1.05, 0.1, 8, 24),
-  orbHalo: new THREE.RingGeometry(1.05, 1.3, 28),
-}
+/* ── bright yellow supply crate that a new player immediately reads as helpful ── */
+const CRATE_BODY_COLOR = '#fbbf24'
+const CRATE_CORNER_COLOR = '#1e293b'
+const CRATE_ICON_COLOR = '#ffffff'
+const CRATE_OUTLINE_COLOR = '#22d3ee'
+
+/* ── reusable geometries ── */
+const CRATE_GEO = new THREE.BoxGeometry(1.9, 1.15, 1.9)
+const CORNER_GEO = new THREE.BoxGeometry(0.28, 0.28, 0.28)
+const PLUS_H_GEO = new THREE.BoxGeometry(1.05, 0.22, 0.06)
+const PLUS_V_GEO = new THREE.BoxGeometry(0.22, 1.05, 0.06)
+
+const ORB_GEO = new THREE.IcosahedronGeometry(0.72, 0)
+const ORB_RING_GEO = new THREE.TorusGeometry(1.05, 0.1, 8, 24)
+const ORB_HALO_GEO = new THREE.RingGeometry(1.05, 1.3, 28)
 
 const POWER_WEIGHTS: [PowerUpType, number][] = [
   ['shield', 4],
@@ -43,7 +48,6 @@ const POWER_WEIGHTS: [PowerUpType, number][] = [
   ['magnet', 3],
   ['turbo', 3],
   ['radar', 2.5],
-  ['minesweeper', 2],
   ['slow', 2],
   ['emp', 1.5],
 ]
@@ -59,9 +63,13 @@ const POWER_COLOR: Record<PowerUpType, string> = {
   emp: '#f59e0b',
 }
 
-const ORB_COLORS = Object.fromEntries(
-  Object.entries(POWER_COLOR).map(([k, v]) => [k, new THREE.Color(v)]),
-) as Record<PowerUpType, THREE.Color>
+function createMat(color: string, emissive: string, metalness = 0, roughness = 0.5) {
+  return new THREE.MeshStandardMaterial({ color, emissive: emissive || color, emissiveIntensity: 0.5, metalness, roughness })
+}
+
+function createBasic(color: string, opacity: number) {
+  return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false })
+}
 
 function pickPowerType(): PowerUpType {
   let roll = Math.random() * POWER_WEIGHTS.reduce((s, [, w]) => s + w, 0)
@@ -78,6 +86,8 @@ interface Pickup {
   type: PowerUpType
   x: number
   z: number
+  driftX: number
+  driftZ: number
   phase: number
   popUntil: number
 }
@@ -90,6 +100,8 @@ export default function Pickups() {
       type: 'shield' as PowerUpType,
       x: 0,
       z: 0,
+      driftX: 0,
+      driftZ: 0,
       phase: 0,
       popUntil: 0,
     })),
@@ -103,48 +115,17 @@ export default function Pickups() {
   const slots = useMemo(() => Array.from({ length: POOL }, (_, i) => i), [])
 
   const mats = useMemo(() => {
-    const gold = new THREE.MeshStandardMaterial({
-      color: '#facc15',
-      emissive: '#fde047',
-      emissiveIntensity: 0.55,
-      metalness: 0.35,
-      roughness: 0.32,
-    })
-    const panel = new THREE.MeshStandardMaterial({
-      color: '#ea580c',
-      emissive: '#c2410c',
-      emissiveIntensity: 0.2,
-      roughness: 0.55,
-    })
-    const metal = new THREE.MeshStandardMaterial({
-      color: '#374151',
-      metalness: 0.7,
-      roughness: 0.45,
-    })
-    const bolt = new THREE.MeshStandardMaterial({
-      color: '#f8fafc',
-      emissive: '#e2e8f0',
-      emissiveIntensity: 0.35,
-      metalness: 0.5,
-      roughness: 0.35,
-    })
-    const stripe = new THREE.MeshStandardMaterial({ color: '#1f2937', roughness: 0.8 })
-    const waterRing = new THREE.MeshBasicMaterial({
-      color: '#fde047',
+    const body = createMat(CRATE_BODY_COLOR, '#fde047', 0.22, 0.26)
+    const corner = createMat(CRATE_CORNER_COLOR, '#0f172a', 0.82, 0.34)
+    const iconWhite = createMat(CRATE_ICON_COLOR, '#fefefe', 0.05, 0.12)
+    iconWhite.emissiveIntensity = 0.7
+
+    const waterRing = createBasic('#fbbf24', 0.72)
+    const shadowDisc = createBasic('#020617', 0.32)
+    const outlineMat = new THREE.MeshBasicMaterial({
+      color: CRATE_OUTLINE_COLOR,
       transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-    })
-    const shadowDisc = new THREE.MeshBasicMaterial({
-      color: '#020617',
-      transparent: true,
-      opacity: 0.35,
-      depthWrite: false,
-    })
-    const outline = new THREE.MeshBasicMaterial({
-      color: '#22d3ee',
-      transparent: true,
-      opacity: 0.5,
+      opacity: 0.52,
       side: THREE.BackSide,
       depthWrite: false,
     })
@@ -156,7 +137,7 @@ export default function Pickups() {
       depthWrite: false,
       opacity: 0.85,
     })
-    return { gold, panel, metal, bolt, stripe, waterRing, shadowDisc, sparkleMat, outline }
+    return { body, corner, iconWhite, waterRing, shadowDisc, outlineMat, sparkleMat }
   }, [])
 
   function activeCount() {
@@ -173,14 +154,16 @@ export default function Pickups() {
     return n
   }
 
-  function tintOrb(idx: number, type: PowerUpType) {
-    const c = ORB_COLORS[type]
+  function setOrbColor(idx: number, type: PowerUpType) {
+    const hex = POWER_COLOR[type]
     orb.current[idx]?.traverse((o) => {
-      const m = (o as THREE.Mesh).material as
-        | (THREE.Material & { color?: THREE.Color; emissive?: THREE.Color })
-        | undefined
-      if (m?.color) m.color.copy(c)
-      if (m?.emissive) m.emissive.copy(c)
+      const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
+      if (m && m.color) {
+        m.color.set(hex)
+        if (m.emissive) m.emissive.set(hex)
+      }
+      const bm = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined
+      if (bm && bm.color) bm.color.set(hex)
     })
   }
 
@@ -201,9 +184,11 @@ export default function Pickups() {
     p.type = kind === 'power' ? (powerType ?? pickPowerType()) : 'shield'
     p.x = clamp(x, -8, 8)
     p.z = z
+    p.driftX = rand(-0.14, 0.14)
+    p.driftZ = kind === 'supply' ? rand(0.5, 1.05) : rand(0.18, 0.4)
     p.phase = Math.random() * 10
     p.popUntil = 0
-    if (kind === 'power') tintOrb(data.current.indexOf(p), p.type)
+    if (kind === 'power') setOrbColor(data.current.indexOf(p), p.type)
   }
 
   function trySpawnSupplyWave() {
@@ -223,9 +208,6 @@ export default function Pickups() {
 
     const lane = rand(-5, 5)
     spawn('supply', lane, base)
-    if (Math.random() < 0.35 && activeSupplyCount() < cap) {
-      spawn('supply', lane + rand(-1.2, 1.2), base - rand(4, 7))
-    }
   }
 
   useFrame((state, rawDt) => {
@@ -238,7 +220,7 @@ export default function Pickups() {
       if (!seeded.current) {
         seeded.current = true
         lastSupplySpawnZ.current = runtime.player.z
-        spawn('supply', -2, runtime.player.z - 32)
+        spawn('supply', -2, runtime.player.z - 42)
         spawn('power', 0, runtime.player.z - 48, 'shield')
       }
 
@@ -247,12 +229,15 @@ export default function Pickups() {
       let placed = 0
       while (
         runtime.scriptedCrates.length > 0 &&
-        placed < 2 &&
+        placed < 1 &&
         activeSupplyCount() < burstCap
       ) {
         const c = runtime.scriptedCrates.shift()!
         spawn('supply', c.x, c.z)
         placed++
+      }
+      if (activeSupplyCount() >= burstCap || placed >= 1) {
+        runtime.scriptedCrates = []
       }
 
       trySpawnSupplyWave()
@@ -293,29 +278,33 @@ export default function Pickups() {
           p.x = THREE.MathUtils.lerp(p.x, runtime.player.x, damp(4, dt))
           p.z = THREE.MathUtils.lerp(p.z, runtime.player.z, damp(4, dt))
         }
+      } else if (active) {
+        p.x = clamp(p.x + Math.sin(t * 0.8 + p.phase) * p.driftX * dt, -8, 8)
+        p.z += p.driftZ * dt
       }
 
       const surf = quickWaveAt(p.x, p.z, t)
-      const bob = Math.sin(t * 1.8 + p.phase) * 0.22
-      g.position.set(p.x, surf + 1.35 + bob, p.z)
+      const bob = Math.sin(t * 1.45 + p.phase) * 0.08
+      g.position.set(p.x, surf + (isSupply ? 0.7 : 1.05) + bob, p.z)
       if (crate.current[i]) {
-        crate.current[i]!.rotation.y += dt * 0.55
+        crate.current[i]!.rotation.y += dt * 0.18
+        crate.current[i]!.rotation.z = Math.sin(t * 1.1 + p.phase) * 0.03
       }
 
       const pulse = 0.5 + Math.sin(t * 4.5 + p.phase) * 0.5
 
       if (isSupply && crate.current[i]) {
-        const rim = crate.current[i]!.children[1] as THREE.Mesh | undefined
-        if (rim) {
-          rim.scale.setScalar(1.05 + pulse * 0.12)
-          ;(rim.material as THREE.MeshBasicMaterial).opacity = 0.55 + pulse * 0.25
+        const ring = crate.current[i]!.children[1] as THREE.Mesh | undefined
+        if (ring) {
+          ring.scale.setScalar(1.04 + pulse * 0.1)
+          ;(ring.material as THREE.MeshBasicMaterial).opacity = 0.55 + pulse * 0.28
         }
-        const outline = crate.current[i]!.children[12] as THREE.Mesh | undefined
+        const outline = crate.current[i]!.children[9] as THREE.Mesh | undefined
         if (outline) {
-          ;(outline.material as THREE.MeshBasicMaterial).opacity = 0.4 + pulse * 0.35
+          ;(outline.material as THREE.MeshBasicMaterial).opacity = 0.35 + pulse * 0.35
         }
         if (perfState.tier === 'high') {
-          for (let s = 13; s <= 15; s++) {
+          for (let s = 10; s <= 12; s++) {
             const sp = crate.current[i]!.children[s] as THREE.Sprite | undefined
             if (sp) {
               sp.visible = pulse > 0.78
@@ -359,76 +348,67 @@ export default function Pickups() {
           }}
           visible={false}
         >
+          {/* SUPPLY CRATE — bright yellow body, dark metal corners, white cross icon */}
           <group
             ref={(el) => {
               crate.current[i] = el
             }}
             visible={false}
           >
+            {/* shadow disc on water */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
               <circleGeometry args={[1.5, perfState.tier === 'mobile' ? 12 : 24]} />
               <primitive object={mats.shadowDisc} attach="material" />
             </mesh>
+            {/* water ripple ring */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
               <ringGeometry args={[1.05, 1.28, perfState.tier === 'mobile' ? 14 : 28]} />
               <primitive object={mats.waterRing} attach="material" />
             </mesh>
-            <mesh geometry={PICKUP_GEOM.crate} material={mats.gold} />
+            {/* main body */}
+            <mesh geometry={CRATE_GEO} material={mats.body} />
+            {/* dark metal corner protectors */}
             {(
-              [
-                [-0.95, 0.95, 0.95],
-                [0.95, 0.95, 0.95],
-                [-0.95, 0.95, -0.95],
-                [0.95, 0.95, -0.95],
-              ] as const
+              [[-0.9, 0.56, 0.9], [0.9, 0.56, 0.9], [-0.9, 0.56, -0.9], [0.9, 0.56, -0.9]] as const
             ).map((pos, j) => (
-              <mesh
-                key={`c-${j}`}
-                position={[...pos]}
-                geometry={PICKUP_GEOM.corner}
-                material={mats.metal}
-              />
+              <mesh key={`corner-${j}`} position={[...pos]} geometry={CORNER_GEO} material={mats.corner} />
             ))}
-            <mesh position={[0, 0.2, 0]} geometry={PICKUP_GEOM.panelWide} material={mats.panel} />
-            <mesh
-              position={[0, -0.15, 0]}
-              rotation={[0, Math.PI / 2, 0]}
-              geometry={PICKUP_GEOM.panelSide}
-              material={mats.panel}
-            />
-            <mesh position={[0, 0.55, 0.93]} geometry={PICKUP_GEOM.stripe} material={mats.stripe} />
-            <mesh position={[0, 0.1, 0]} geometry={PICKUP_GEOM.bolt} material={mats.bolt} />
-            <mesh
-              position={[0, 0.1, 0]}
-              rotation={[0, Math.PI / 2, 0]}
-              geometry={PICKUP_GEOM.bolt}
-              material={mats.bolt}
-            />
-            <mesh
-              scale={[1.05, 1.05, 1.05]}
-              geometry={PICKUP_GEOM.crate}
-              material={mats.outline}
-            />
+            {/* white cross/plus icon on front face */}
+            <mesh position={[0, 0.02, 0.96]} geometry={PLUS_H_GEO} material={mats.iconWhite} />
+            <mesh position={[0, 0.02, 0.96]} geometry={PLUS_V_GEO} material={mats.iconWhite} />
+            {/* teal outline rim */}
+            <mesh position={[0, 0.02, 0.02]} scale={[1.03, 1.03, 1.02]} geometry={CRATE_GEO} material={mats.outlineMat} />
+            {/* sparkles */}
             {(
-              [
-                [0.9, 1.1, 0.4],
-                [-0.85, 1.25, -0.5],
-                [0.3, 1.35, -0.75],
-              ] as const
+              [[0.9, 1.1, 0.4], [-0.85, 1.25, -0.5], [0.3, 1.35, -0.75]] as const
             ).map((pos, j) => (
-              <sprite key={`sp-${j}`} position={[...pos]} scale={[0.4, 0.4, 1]} visible={false}>
+              <sprite key={`spkr-${j}`} position={[...pos]} scale={[0.4, 0.4, 1]} visible={false}>
                 <primitive object={mats.sparkleMat} attach="material" />
               </sprite>
             ))}
+            <Text
+              position={[0, 0.66, 0.98]}
+              rotation={[-0.18, 0, 0]}
+              fontSize={0.23}
+              letterSpacing={0.05}
+              color="#ffffff"
+              anchorX="center"
+              anchorY="middle"
+              outlineWidth={0.025}
+              outlineColor="#0f172a"
+            >
+              SUPPLY
+            </Text>
           </group>
 
+          {/* POWER-UP ORB */}
           <group
             ref={(el) => {
               orb.current[i] = el
             }}
             visible={false}
           >
-            <mesh geometry={PICKUP_GEOM.orb}>
+            <mesh geometry={ORB_GEO}>
               <meshStandardMaterial
                 color="#3b82f6"
                 emissive="#3b82f6"
@@ -437,13 +417,13 @@ export default function Pickups() {
                 roughness={0.15}
               />
             </mesh>
-            <mesh rotation={[Math.PI / 2.4, 0, 0]} geometry={PICKUP_GEOM.orbRing}>
+            <mesh rotation={[Math.PI / 2.4, 0, 0]} geometry={ORB_RING_GEO}>
               <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1.4} />
             </mesh>
             <mesh
               rotation={[-Math.PI / 2, 0, 0]}
               position={[0, -0.4, 0]}
-              geometry={PICKUP_GEOM.orbHalo}
+              geometry={ORB_HALO_GEO}
             >
               <meshBasicMaterial color="#60a5fa" transparent opacity={0.65} depthWrite={false} />
             </mesh>

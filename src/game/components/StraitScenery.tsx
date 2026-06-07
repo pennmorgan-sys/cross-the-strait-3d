@@ -70,27 +70,28 @@ function SkyDome({
 
 function RouteLane() {
   const ref = useRef<THREE.Group>(null)
-  const count =
-    perfState.tier === 'mobile' ? 4 : getCaps().maxSkyMissiles >= 10 ? 16 : 8
+  const count = perfState.tier === 'mobile' ? 4 : 8
   const seg = perfState.tier === 'mobile' ? 6 : 10
-  const geo = useMemo(() => new THREE.SphereGeometry(0.28, seg, seg), [seg])
+  const geo = useMemo(() => new THREE.SphereGeometry(0.22, seg, seg), [seg])
   const matRed = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: COLORS.warningRed,
-        emissive: '#ef4444',
-        emissiveIntensity: 0.45,
-        metalness: 0.2,
+        color: '#FACC15',
+        emissive: '#FACC15',
+        emissiveIntensity: 0.22,
+        metalness: 0.18,
+        roughness: 0.5,
       }),
     [],
   )
   const matWhite = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#f8fafc',
-        emissive: '#e2e8f0',
-        emissiveIntensity: 0.45,
-        metalness: 0.2,
+        color: '#F8FAFC',
+        emissive: '#67E8F9',
+        emissiveIntensity: 0.16,
+        metalness: 0.15,
+        roughness: 0.5,
       }),
     [],
   )
@@ -130,6 +131,10 @@ function RouteLane() {
   return (
     <group ref={ref}>
       <RouteBeaconGlow />
+      <mesh position={[0, 0.09, -72]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3.8, 160]} />
+        <meshBasicMaterial color="#67E8F9" transparent opacity={0.06} depthWrite={false} />
+      </mesh>
       <instancedMesh ref={redRef} args={[geo, matRed, redN]} />
       <instancedMesh ref={whiteRef} args={[geo, matWhite, whiteN]} />
     </group>
@@ -153,7 +158,7 @@ function MissileLauncher({ pos }: { pos: [number, number, number] }) {
     <group ref={ref} position={pos}>
       <mesh position={[0, 0.5, 0]} castShadow>
         <boxGeometry args={[2.4, 1, 3.2]} />
-        <meshStandardMaterial color="#1e242c" metalness={0.65} roughness={0.35} />
+        <meshStandardMaterial color="#4B5563" metalness={0.55} roughness={0.44} flatShading />
       </mesh>
       <mesh position={[0, 0.15, 0.2]}>
         <boxGeometry args={[2.6, 0.35, 3.4]} />
@@ -162,7 +167,7 @@ function MissileLauncher({ pos }: { pos: [number, number, number] }) {
       {[-0.55, 0, 0.55].map((x, i) => (
         <mesh key={i} position={[x, 1.35, -0.35]} rotation={[-0.55, 0, 0]} castShadow>
           <cylinderGeometry args={[0.14, 0.14, 2, 8]} />
-          <meshStandardMaterial color="#0f1419" metalness={0.75} roughness={0.25} />
+          <meshStandardMaterial color="#6B7280" metalness={0.72} roughness={0.34} />
         </mesh>
       ))}
       <pointLight
@@ -196,44 +201,6 @@ function Launchers() {
     <group ref={root}>
       {sites.map((p, i) => (
         <MissileLauncher key={i} pos={p} />
-      ))}
-    </group>
-  )
-}
-
-function JetSilhouettes({ count }: { count: number }) {
-  const jets = useMemo(
-    () =>
-      Array.from({ length: count }, () => ({
-        phase: Math.random() * 20,
-        h: rand(24, 42),
-        speed: rand(0.12, 0.3),
-      })),
-    [count],
-  )
-  const ref = useRef<THREE.Group>(null)
-  useFrame((state) => {
-    if (!ref.current) return
-    ref.current.position.z = runtime.player.z
-    const t = state.clock.elapsedTime
-    ref.current.children.forEach((c, i) => {
-      const j = jets[i]
-      c.position.set(Math.sin(t * j.speed + j.phase) * 38, j.h, -55 - i * 28)
-    })
-  })
-  return (
-    <group ref={ref}>
-      {jets.map((_, i) => (
-        <group key={i}>
-          <mesh rotation={[0, Math.PI / 2, 0]}>
-            <coneGeometry args={[0.9, 4, 5]} />
-            <meshStandardMaterial color="#0f172a" metalness={0.4} />
-          </mesh>
-          <mesh position={[0, 0, -2.2]} rotation={[0, Math.PI / 2, 0]}>
-            <boxGeometry args={[0.15, 2.8, 0.5]} />
-            <meshBasicMaterial color="#1e293b" />
-          </mesh>
-        </group>
       ))}
     </group>
   )
@@ -312,24 +279,24 @@ export default function StraitScenery({
 }) {
   const mobile = perfState.tier === 'mobile'
   const peaceful = isPeacefulLevel(level)
-  const combatFx = !peaceful
+  const routeVisualsOnly = peaceful || level.calmAfterProgress !== undefined
+  const combatFx = !routeVisualsOnly
   const caps = getCaps()
   return (
     <>
       <SkyDome sky={sky} nightMode={nightMode} />
       {nightMode && !mobile ? <NightSky /> : !nightMode ? <SunGlare /> : null}
-      <StraitShores nightMode={nightMode} peaceful={peaceful} />
-      <StraitMapLabels peaceful={peaceful} />
+      <StraitShores nightMode={nightMode} peaceful={routeVisualsOnly} />
+      <StraitMapLabels peaceful={routeVisualsOnly} />
       <RouteLane />
       {combatFx && !mobile && <Launchers />}
-      <StraitTankers levelId={level.id} />
+      <StraitTankers />
       {combatFx && <DistantSmoke count={caps.maxDistantSmoke} />}
       {combatFx && !mobile && <RefineryGlow level={level} />}
       {combatFx && !mobile && <SurpriseFlares />}
       {combatFx && level.searchlights && !mobile && (
         <Searchlights count={caps.maxSearchlights} />
       )}
-      {combatFx && caps.maxJets > 0 && <JetSilhouettes count={caps.maxJets} />}
       {combatFx && (
         <SkyMissilesEnhanced
           count={Math.min(caps.maxSkyMissiles, caps.maxMissileTrails)}

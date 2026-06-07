@@ -8,6 +8,8 @@ import {
   triggerInterceptEvent,
   triggerExplosionFlash,
   grantPowerUp,
+  consumeBombEvent,
+  canSpawnBudgetedHazard,
 } from './runtime'
 import { useGame } from './store'
 import { sfx } from './systems/audio'
@@ -45,6 +47,7 @@ function pulseFlare() {
 function spawnPatrolWave(count: number, spread = 14) {
   const pz = runtime.player.z
   for (let i = 0; i < count; i++) {
+    if (!canSpawnBudgetedHazard('patrol')) break
     runtime.scriptedHazards.push({
       kind: 'patrol',
       x: (i % 2 === 0 ? -1 : 1) * (6 + (i % 3) * 2),
@@ -58,21 +61,24 @@ function spawnMineLine(n: number) {
   const lane = Math.random() < 0.5 ? -3.5 : 3.5
   const count = Math.min(n, 2)
   for (let i = 0; i < count; i++) {
+    if (!canSpawnBudgetedHazard('mine')) break
     runtime.scriptedHazards.push({ kind: 'mine', x: lane + (i % 2) * 1.2, z: pz - 28 - i * 6 })
   }
 }
 
 function spawnBombSalvo(n: number) {
+  if (!consumeBombEvent()) return false
   const pz = runtime.player.z
   for (let i = 0; i < n; i++) {
     runtime.scriptedBombs.push({ x: (Math.random() - 0.5) * 12, z: pz - 35 - i * 9 })
   }
   runtime.incoming = Math.min(2.5, runtime.incoming + 0.8)
+  return true
 }
 
 function supplyRain(count: number) {
   const pz = runtime.player.z
-  const n = Math.min(count, 6)
+  const n = Math.min(count, runtime.level.specialSupplyBurstMax ?? 2, 2)
   for (let i = 0; i < n; i++) {
     runtime.scriptedCrates.push({
       x: (Math.random() - 0.5) * 8,
@@ -85,7 +91,6 @@ function supplyRain(count: number) {
 export function runOpeningSurprises() {
   if (!runtime.running || isEndlessLevel(runtime.level.id) || runtime.level.peaceful) return
   const lid = runtime.level.id
-  const pz = runtime.player.z
   const once = (key: string, at: number, fn: () => void) => {
     if (runtime.openingClock < at || flag(key)) return
     setFlag(key)
@@ -94,56 +99,49 @@ export function runOpeningSurprises() {
 
   if (lid === 1) {
     once('l1-supply', 0.35, () => {
-      supplyRain(4)
+      supplyRain(2)
       toast('CONVOY SUPPLY DROP', 'good')
     })
     once('l1-intercept', 2, () => {
-      setSurpriseBanner('SHADOW BOATS — STAY IN LANE')
-      triggerInterceptEvent()
-      spawnPatrolWave(2, 32)
-    })
-    once('l1-missile', 4.2, () => {
-      pulseFlare()
-      toast('COASTAL LAUNCH — INCOMING', 'bad')
-      spawnBombSalvo(1)
+      setSurpriseBanner('ONE SHADOW BOAT — STAY IN LANE')
+      spawnPatrolWave(1, 42)
     })
     once('l1-gift', 7, () => {
-      supplyRain(4)
+      supplyRain(2)
       toast('ALLIED REINFORCEMENTS', 'good')
     })
   }
 
   if (lid === 2) {
     once('l2-radar', 1.2, () => {
-      setSurpriseBanner('RADAR SWEEP ACTIVE')
-      toast('SEARCHLIGHTS ON THE COAST', 'bad')
-      spawnPatrolWave(2, 28)
+      setSurpriseBanner('LIGHT PATROL SCREEN')
+      toast('PATROL BOAT ON THE EDGE', 'info')
+      spawnPatrolWave(1, 36)
     })
     once('l2-ambush', 3.5, () => {
-      pulseFlare()
-      spawnPatrolWave(2, 40)
-      toast('FAST INTERCEPT — HARD STARBORD', 'bad')
+      if (spawnBombSalvo(1)) {
+        pulseFlare()
+        toast('COASTAL LAUNCH — CLEAR WARNING', 'bad')
+      }
     })
   }
 
   if (lid === 3) {
-    once('l3-mines', 0.8, () => {
-      setSurpriseBanner('MINE BELT — PULSE READY (E)')
-      spawnMineLine(2)
-      toast('MINEFIELD DETECTED', 'bad')
+    once('l3-screen', 1.3, () => {
+      setSurpriseBanner('ESCORT SCREEN — KEEP THE GAP')
+      spawnPatrolWave(1, 38)
+      toast('PATROL AHEAD', 'info')
     })
-    once('l3-oil', 4, () => {
-      runtime.scriptedHazards.push({ kind: 'oil', x: 2, z: pz - 45 })
-      runtime.scriptedHazards.push({ kind: 'oil', x: -2.5, z: pz - 52 })
-      toast('OIL SLICK — AVOID CENTER', 'bad')
+    once('l3-warning', 4, () => {
+      if (spawnBombSalvo(1)) toast('STRIKE WARNING — OPEN WATER LEFT', 'bad')
     })
   }
 
   if (lid === 4) {
     once('l4-open', 0.6, () => {
-      setSurpriseBanner('MISSILE CORRIDOR LIVE')
-      spawnBombSalvo(3)
-      toast('SALVO INBOUND', 'bad')
+      setSurpriseBanner('MISSILE CORRIDOR — WATCH THE RINGS')
+      spawnBombSalvo(1)
+      toast('SINGLE STRIKE INBOUND', 'bad')
     })
     once('l4-emp', 5, () => {
       grantPowerUp('emp')
@@ -154,50 +152,13 @@ export function runOpeningSurprises() {
 
   if (lid === 5) {
     once('l5-terminal', 1, () => {
-      setSurpriseBanner('REFINERY FIRELINE')
+      setSurpriseBanner('FINAL ESCORT — MEDIUM PRESSURE')
       pulseFlare()
-      spawnBombSalvo(2)
+      spawnBombSalvo(1)
     })
     once('l5-dock', 4.5, () => {
-      runtime.scriptedHazards.push({ kind: 'cargo', x: 5, z: pz - 38 })
-      runtime.scriptedHazards.push({ kind: 'debris', x: -4, z: pz - 44 })
-      toast('DOCK TRAFFIC — WEAVE', 'bad')
-    })
-  }
-
-  if (lid === 6) {
-    once('l6-dark', 0.9, () => {
-      setSurpriseBanner('RADAR SILENCE — RUN DARK')
-      runtime.incoming = 1.2
-      toast('SNAPSHOT MISSILE LOCK', 'bad')
-    })
-    once('l6-flare', 3.8, () => {
-      pulseFlare()
-      spawnPatrolWave(3, 36)
-    })
-  }
-
-  if (lid === 7) {
-    once('l7-merge', 1.1, () => {
-      setSurpriseBanner('TWIN CONVOY MERGE')
-      toast('SECOND TANKER ON YOUR PORT SIDE', 'info')
-      supplyRain(6)
-    })
-    once('l7-cross', 4.2, () => {
-      spawnBombSalvo(2)
-      spawnPatrolWave(2, 30)
-      toast('CROSSFIRE — HOLD FORMATION', 'bad')
-    })
-  }
-
-  if (lid === 8) {
-    once('l8-push', 1.5, () => {
-      setSurpriseBanner('FINAL PUSH — ESCORT OR DIE')
-      triggerInterceptEvent()
-    })
-    once('l8-salvo', 4, () => {
-      spawnBombSalvo(3)
-      pulseFlare()
+      spawnPatrolWave(1, 36)
+      toast('ESCORT BOAT CROSSING', 'info')
     })
   }
 
@@ -216,51 +177,45 @@ export function runProgressSurprises() {
   if (!runtime.running || isEndlessLevel(runtime.level.id) || runtime.level.peaceful) return
   const lid = runtime.level.id
   const p = progress()
-  const pz = runtime.player.z
 
   if (lid === 1 && p > 0.42 && tryFlag('l1-mid')) {
-    setSurpriseBanner('GHOST CONVOY — FRIEND OR FOE?')
-    spawnPatrolWave(2, 22)
-    toast('UNKNOWN CONTACT AHEAD', 'info')
+    supplyRain(2)
+    toast('SAFE LANE SUPPLIES AHEAD', 'good')
   }
 
   if (lid === 2 && p > 0.38 && tryFlag('l2-mid')) {
-    triggerInterceptEvent()
-    spawnBombSalvo(2)
+    supplyRain(2)
+    toast('SAFE GAP SUPPLIES', 'good')
   }
 
   if (lid === 3 && p > 0.55 && tryFlag('l3-mid')) {
-    runtime.minesweeperReady = true
-    grantPowerUp('minesweeper')
-    toast('MINESWEEPER CHARGED', 'good')
-    pulseFlare()
+    triggerInterceptEvent()
+    spawnBombSalvo(1)
+    toast('INTERCEPT SCREEN — FAIR GAP AHEAD', 'bad')
   }
 
   if (lid === 4 && p > 0.48 && tryFlag('l4-mid')) {
-    setSurpriseBanner('DOUBLE TAP — SECOND WAVE')
-    spawnBombSalvo(3)
-    runtime.shake = 0.5
+    setSurpriseBanner('SECOND WARNING ZONE')
+    triggerInterceptEvent()
+    spawnBombSalvo(1)
+    runtime.shake = 0.28
   }
 
   if (lid === 5 && p > 0.5 && tryFlag('l5-mid')) {
-    supplyRain(6)
+    supplyRain(3)
     toast('TERMINAL SUPPLY LANE', 'good')
   }
 
-  if (lid === 6 && p > 0.45 && tryFlag('l6-mid')) {
-    grantPowerUp('radar')
-    toast('RADAR BURST — SCAN ACTIVE', 'good')
-  }
-
-  if (lid === 7 && p > 0.62 && tryFlag('l7-mid')) {
-    spawnMineLine(1)
-    spawnPatrolWave(2, 34)
-    setSurpriseBanner('DUAL LANE MINEFIELD')
-  }
-
-  if ((lid === 8 || lid === CHAOS_LEVEL_ID) && p > 0.58 && tryFlag('l8-ambush')) {
+  if (lid === 5 && p > 0.66 && tryFlag('l5-final-screen')) {
     triggerInterceptEvent()
-    spawnPatrolWave(lid === CHAOS_LEVEL_ID ? 4 : 2, 28)
+    spawnBombSalvo(1)
+    spawnPatrolWave(1, 34)
+    toast('FINAL ESCORT SCREEN', 'bad')
+  }
+
+  if (lid === CHAOS_LEVEL_ID && p > 0.58 && tryFlag('chaos-ambush')) {
+    triggerInterceptEvent()
+    spawnPatrolWave(4, 28)
     toast('SURPRISE INTERCEPT', 'bad')
   }
 
@@ -276,15 +231,6 @@ export function runProgressSurprises() {
       toast(['HOT SKY', 'PATROL SWARM', 'MINE SNAP', 'FLARE BURST'][beat % 4], 'bad')
     }
   }
-
-  // Late-game refinery debris (level 5+)
-  if (lid >= 5 && p > 0.72 && p < 0.85 && tryFlag(`debris-${lid}-${Math.floor(p * 20)}`)) {
-    runtime.scriptedHazards.push({ kind: 'debris', x: randSide(), z: pz - 30 })
-  }
-}
-
-function randSide() {
-  return (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 4)
 }
 
 /** Tick surprise banner expiry */

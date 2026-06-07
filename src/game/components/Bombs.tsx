@@ -9,7 +9,14 @@ import {
   COLORS,
   MAX_ACTIVE,
 } from '../constants'
-import { runtime, isSlow, damage, triggerExplosionFlash } from '../runtime'
+import {
+  runtime,
+  isSlow,
+  damage,
+  triggerExplosionFlash,
+  consumeBombEvent,
+  isCombatBudgetOpen,
+} from '../runtime'
 import { quickWaveAt } from '../waves'
 import { clamp, rand } from '../systems/math'
 import { glowTexture } from '../systems/glow'
@@ -91,20 +98,21 @@ export default function Bombs() {
 
     const level = runtime.level
 
-    if (active && level.bombInterval > 0) {
+    if (active && level.bombInterval > 0 && isCombatBudgetOpen()) {
       while (runtime.scriptedBombs.length > 0) {
         const b = runtime.scriptedBombs.shift()!
         spawnAt(b.x, b.z)
       }
       if (!seeded.current) {
         seeded.current = true
-        // Guarantee an early, visible bomb so the run feels exciting fast.
-        timer.current = Math.min(level.bombInterval, 2.1)
+        timer.current = level.endless ? level.bombInterval : Math.max(4.2, level.bombInterval * 0.85)
       }
       timer.current -= dt
       if (timer.current <= 0) {
         timer.current = level.bombInterval
-        for (let i = 0; i < level.bombBurst; i++) spawnOne()
+        if (consumeBombEvent()) {
+          for (let i = 0; i < level.bombBurst; i++) spawnOne()
+        }
       }
       if (runtime.debugBombReq !== lastDebug.current) {
         lastDebug.current = runtime.debugBombReq

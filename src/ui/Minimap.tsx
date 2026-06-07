@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
 import { useGame } from '../game/store'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
-import { buildRoutePath, getMinimapState, MAP_WAYPOINTS } from '../game/worldMap'
+import {
+  buildRoutePath,
+  getMinimapState,
+  mapLabelLayout,
+  MAP_WAYPOINTS,
+} from '../game/worldMap'
 
 export default function Minimap() {
   const hud = useGame((s) => s.hud)
@@ -29,6 +34,9 @@ export default function Minimap() {
   const routeD = buildRoutePath(state.destination)
   const px = state.playerX * 100
   const py = state.playerY * 130
+  const destinationLabel = state.destination
+    ? mapLabelLayout(state.destination, 100, 130)
+    : null
 
   return (
     <div className="minimap" aria-label="Navigation minimap">
@@ -36,7 +44,7 @@ export default function Minimap() {
         <span className="minimap-title">NAV MAP</span>
         {state.destination && (
           <span className="minimap-dest">
-            {state.destination.flag} {state.destination.country}
+            {state.destination.flag} {state.destination.port}
           </span>
         )}
       </div>
@@ -66,15 +74,29 @@ export default function Minimap() {
           </g>
         ))}
         {state.destination && (
-          <g
-            transform={`translate(${state.destination.mapX * 100}, ${state.destination.mapY * 130})`}
-          >
-            <circle r="5" className="mm-dest-ring" stroke={style.stripe} />
-            <text y="1" className="mm-dest-flag" textAnchor="middle">
+          <g>
+            <circle
+              cx={destinationLabel?.marker.x}
+              cy={destinationLabel?.marker.y}
+              r="5"
+              className="mm-dest-ring"
+              stroke={style.stripe}
+            />
+            <text
+              x={destinationLabel?.marker.x}
+              y={(destinationLabel?.marker.y ?? 0) + 1}
+              className="mm-dest-flag"
+              textAnchor="middle"
+            >
               {state.destination.flag}
             </text>
-            <text y="12" className="mm-dest-name" textAnchor="middle">
-              {state.destination.country}
+            <text
+              x={destinationLabel?.labelX}
+              y={destinationLabel?.labelY}
+              className="mm-dest-name"
+              textAnchor={destinationLabel?.textAnchor}
+            >
+              {state.destination.port}
             </text>
           </g>
         )}
@@ -107,17 +129,31 @@ export function MinimapPreview({
     [destinationId, levelId],
   )
   const style = ROUTE_STYLE[state.tankerRoute]
-  const routeD = buildRoutePath(state.destination)
+  const routeD = buildRoutePath(state.destination, 100, 70)
+  const destinationLabel = state.destination
+    ? mapLabelLayout(state.destination, 100, 70)
+    : null
 
   return (
     <svg viewBox="0 0 100 70" className="minimap-preview-svg" aria-hidden>
       <rect width="100" height="70" fill="#061826" rx="6" />
       <path d={routeD} fill="none" stroke={style.stripe} strokeWidth="1.8" opacity="0.9" />
       {state.destination && (
-        <g transform={`translate(${state.destination.mapX * 100}, ${state.destination.mapY * 70})`}>
-          <circle r="5" fill={style.stripe} />
-          <text y="14" textAnchor="middle" fontSize="8" fill="#f8fafc">
-            {state.destination.flag} {state.destination.country}
+        <g>
+          <circle
+            cx={destinationLabel?.marker.x}
+            cy={destinationLabel?.marker.y}
+            r="5"
+            fill={style.stripe}
+          />
+          <text
+            x={destinationLabel?.labelX}
+            y={destinationLabel?.labelY}
+            textAnchor={destinationLabel?.textAnchor}
+            fontSize="7"
+            fill="#f8fafc"
+          >
+            {state.destination.flag} {state.destination.port}
           </text>
         </g>
       )}

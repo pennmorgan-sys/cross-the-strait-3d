@@ -4,7 +4,7 @@ const ROWS: { keys: string[]; action: string }[] = [
   { keys: ['A', 'D', '\u2190', '\u2192'], action: 'Steer the tanker / hold the lane' },
   { keys: ['W', 'S'], action: 'Ahead slow / flank speed' },
   { keys: ['Space'], action: 'Engine boost (flank speed)' },
-  { keys: ['E'], action: 'Minesweeper pulse / use tool' },
+  { keys: ['E'], action: 'Use equipped tool' },
   { keys: ['P', 'Esc'], action: 'Pause' },
   { keys: ['R'], action: 'Restart after game over' },
 ]
@@ -14,11 +14,11 @@ export default function ControlsModal() {
 
   return (
     <div className="overlay dim" style={{ zIndex: 30 }}>
-      <div className="panel">
+      <div className="panel controls-panel">
         <h2 className="subtitle">CONTROLS</h2>
         <p className="muted">
-          Pilot the lead oil tanker through the Strait. Dodge mines, missiles, intercept
-          craft, and coastal strikes. Convoy partners trail on harder missions.
+          Pilot the oil tanker through the Strait. Read warning rings, avoid patrol craft,
+          collect supply crates, and keep the lane open.
         </p>
 
         <div className="controls-list">

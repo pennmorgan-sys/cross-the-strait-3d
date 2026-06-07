@@ -87,8 +87,12 @@ export default function GameOverScreen() {
           >
             {endless ? 'RUN AGAIN' : 'RETRY (R)'}
           </button>
-          <button type="button" className="btn secondary" onClick={() => setScreen('levels')}>
-            {endless ? 'STORY MISSIONS' : 'MISSIONS'}
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => setScreen(deliveryMode ? 'delivery' : 'levels')}
+          >
+            {deliveryMode ? 'DESTINATIONS' : endless ? 'STORY MISSIONS' : 'MISSIONS'}
           </button>
           <button type="button" className="btn secondary" onClick={() => setScreen('menu')}>
             MAIN MENU

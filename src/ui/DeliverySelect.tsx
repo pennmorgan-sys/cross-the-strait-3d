@@ -1,27 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
 import { useGame } from '../game/store'
 import {
   DELIVERY_DESTINATIONS,
   type DeliveryDestination,
 } from '../game/deliveryDestinations'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
-import { buildRoutePath } from '../game/worldMap'
+import { buildRoutePath, mapLabelLayout } from '../game/worldMap'
 import { MAP_WAYPOINTS } from '../game/worldMap'
 
 function DestinationMapThumb({ dest }: { dest: DeliveryDestination }) {
   const style = ROUTE_STYLE[dest.tankerRoute]
-  const routeD = buildRoutePath(dest)
+  const routeD = buildRoutePath(dest, 100, 80)
+  const destinationLabel = mapLabelLayout(dest, 100, 80)
   return (
     <svg viewBox="0 0 100 80" className="delivery-thumb-svg" aria-hidden>
       <rect width="100" height="80" fill="#061826" rx="4" />
       <rect x="0" y="0" width="14" height="80" fill="rgba(92,74,56,0.5)" />
       <rect x="86" y="0" width="14" height="80" fill="rgba(212,184,122,0.35)" />
       <path d={routeD} fill="none" stroke={style.stripe} strokeWidth="1.5" opacity="0.85" />
-      <circle cx={dest.mapX * 100} cy={dest.mapY * 80} r="4" fill={style.stripe} />
+      <circle cx={destinationLabel.marker.x} cy={destinationLabel.marker.y} r="4" fill={style.stripe} />
       <text
-        x={dest.mapX * 100}
-        y={dest.mapY * 80 + 14}
-        textAnchor="middle"
+        x={destinationLabel.labelX}
+        y={destinationLabel.labelY}
+        textAnchor={destinationLabel.textAnchor}
         className="delivery-thumb-label"
       >
         {dest.flag}
@@ -31,13 +33,26 @@ function DestinationMapThumb({ dest }: { dest: DeliveryDestination }) {
 }
 
 export default function DeliverySelect() {
+  const panelRef = useRef<HTMLDivElement>(null)
   const startDelivery = useGame((s) => s.startDelivery)
   const setScreen = useGame((s) => s.setScreen)
   const [picked, setPicked] = useState<DeliveryDestination | null>(null)
 
+  useEffect(() => {
+    if (!panelRef.current) return
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        '.delivery-card',
+        { autoAlpha: 0, y: 10 },
+        { autoAlpha: 1, y: 0, duration: 0.34, stagger: 0.035, ease: 'power2.out' },
+      )
+    }, panelRef)
+    return () => ctx.revert()
+  }, [])
+
   return (
     <div className="overlay delivery-overlay">
-      <div className="panel panel-delivery">
+      <div ref={panelRef} className="panel panel-delivery">
         <p className="tagline">World Delivery</p>
         <h2 className="subtitle">Choose destination country</h2>
         <p className="menu-desc">
@@ -75,7 +90,9 @@ export default function DeliverySelect() {
         </div>
 
         {picked && (
-          <p className="delivery-blurb">{picked.blurb}</p>
+          <p className="delivery-blurb">
+            {picked.briefingText} · {picked.routeName} · {picked.direction}
+          </p>
         )}
 
         <div className="btn-row">

@@ -71,7 +71,7 @@ export function getMinimapState(
     playerY: clamp01(playerY),
     destination: dest,
     routeLabel: deliveryId
-      ? `${dest?.country ?? 'DEST'} · ${dest?.port ?? ''}`
+      ? `${dest?.routeName ?? 'DESTINATION'} · ${dest?.port ?? ''}`
       : briefing.routeLabel,
     tankerRoute: deliveryId
       ? (dest?.tankerRoute ?? briefing.tankerRoute)
@@ -85,14 +85,51 @@ function clamp01(n: number) {
   return Math.max(0.04, Math.min(0.96, n))
 }
 
+export function mapPoint(
+  point: { mapX: number; mapY: number },
+  width: number,
+  height: number,
+) {
+  return {
+    x: point.mapX * width,
+    y: point.mapY * height,
+  }
+}
+
+export function mapLabelLayout(
+  point: { mapX: number; mapY: number },
+  width: number,
+  height: number,
+) {
+  const marker = mapPoint(point, width, height)
+  const nearLeft = marker.x < width * 0.34
+  const nearRight = marker.x > width * 0.66
+  const nearBottom = marker.y > height - 18
+  const textAnchor = nearLeft ? 'start' : nearRight ? 'end' : 'middle'
+  const offsetX = nearLeft ? 6 : nearRight ? -6 : 0
+  const offsetY = nearBottom ? -10 : 13
+  const margin = 7
+
+  return {
+    marker,
+    labelX: Math.max(margin, Math.min(width - margin, marker.x + offsetX)),
+    labelY: Math.max(10, Math.min(height - 4, marker.y + offsetY)),
+    textAnchor,
+  } as const
+}
+
 /** SVG path from start through strait toward destination pin */
-export function buildRoutePath(dest: DeliveryDestination | null): string {
+export function buildRoutePath(
+  dest: DeliveryDestination | null,
+  width = 100,
+  height = 130,
+): string {
   const s = MAP_WAYPOINTS.persianGulf
   const h = MAP_WAYPOINTS.hormuz
   const o = MAP_WAYPOINTS.gulfOman
   const end = dest ?? { mapX: 0.5, mapY: 0.08 }
-  const mx = (n: number) => n * 100
-  const my = (n: number) => n * 130
+  const mx = (n: number) => n * width
+  const my = (n: number) => n * height
   return [
     `M ${mx(s.x)} ${my(s.y)}`,
     `L ${mx(h.x)} ${my(h.y)}`,

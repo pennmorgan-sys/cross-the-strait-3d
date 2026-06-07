@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
+import gsap from 'gsap'
 import { useGame } from '../game/store'
-import { usePowerUp } from '../game/runtime'
+import { activatePowerUp } from '../game/runtime'
 import { MAX_HEALTH } from '../game/constants'
 import type { PowerUpType, TankerRouteId } from '../game/types'
 import { ROUTE_STYLE } from '../game/tankerRoutes'
@@ -26,6 +28,7 @@ const ROUTE_LABEL: Record<TankerRouteId, string> = {
 }
 
 export default function Hud() {
+  const hudRef = useRef<HTMLDivElement>(null)
   const hud = useGame((s) => s.hud)
   const toasts = useGame((s) => s.toasts)
   const togglePause = useGame((s) => s.togglePause)
@@ -38,8 +41,20 @@ export default function Hud() {
   const showMinesweeper =
     hud.minesweeperReady || hud.powerUp === 'minesweeper'
 
+  useEffect(() => {
+    if (!hudRef.current) return
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        '.hud-card, .minimap, .hud-progress',
+        { autoAlpha: 0, y: -8 },
+        { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.05, ease: 'power2.out' },
+      )
+    }, hudRef)
+    return () => ctx.revert()
+  }, [])
+
   return (
-    <div className="hud" aria-live="polite">
+    <div ref={hudRef} className="hud" aria-live="polite">
       <div className="fx vignette hud-vignette" />
       <div className={`fx danger${danger ? ' on' : ''}`} />
 
@@ -59,32 +74,34 @@ export default function Hud() {
           </div>
         </div>
 
-        <div className="hud-card hud-card-right">
-          {hud.missionCodename && (
-            <div className="hud-codename">{hud.missionCodename}</div>
-          )}
-          <div className="level-name">{hud.levelName}</div>
-          <div
-            className="tanker-route-badge"
-            style={{ borderColor: routeStyle.stripe, color: routeStyle.accent }}
-          >
-            {ROUTE_LABEL[hud.tankerRoute]}
+        <div className="hud-right-stack">
+          <div className="hud-card hud-card-right">
+            {hud.missionCodename && (
+              <div className="hud-codename">{hud.missionCodename}</div>
+            )}
+            <div className="level-name">{hud.levelName}</div>
+            <div
+              className="tanker-route-badge"
+              style={{ borderColor: routeStyle.stripe, color: routeStyle.accent }}
+            >
+              {hud.routeName ?? ROUTE_LABEL[hud.tankerRoute]}
+            </div>
+            <div className="hearts">
+              {hearts.map((full, i) => (
+                <span key={i} className={`heart${full ? '' : ' empty'}`}>
+                  {full ? '\u2764\uFE0F' : '\u{1F90D}'}
+                </span>
+              ))}
+            </div>
+            {hud.shield && <div className="shield-ring">SHIELD ACTIVE</div>}
+            <button type="button" className="btn-hud-pause btn-hud-pause-desktop" onClick={togglePause}>
+              PAUSE
+            </button>
           </div>
-          <div className="hearts">
-            {hearts.map((full, i) => (
-              <span key={i} className={`heart${full ? '' : ' empty'}`}>
-                {full ? '\u2764\uFE0F' : '\u{1F90D}'}
-              </span>
-            ))}
-          </div>
-          {hud.shield && <div className="shield-ring">SHIELD ACTIVE</div>}
-          <button type="button" className="btn-hud-pause btn-hud-pause-desktop" onClick={togglePause}>
-            PAUSE
-          </button>
+
+          <Minimap />
         </div>
       </div>
-
-      <Minimap />
 
       <div className="hud-orient">
         <span>IRAN COAST</span>
@@ -140,7 +157,7 @@ export default function Hud() {
                 }}
               />
               <span>{hud.powerUp.toUpperCase()}</span>
-              <button type="button" className="btn-use-tool" onClick={usePowerUp}>
+              <button type="button" className="btn-use-tool" onClick={activatePowerUp}>
                 USE (E)
               </button>
             </div>

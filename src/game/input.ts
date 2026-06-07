@@ -3,7 +3,7 @@ import { useGame } from './store'
 import {
   runtime,
   startLevel,
-  usePowerUp,
+  activatePowerUp,
   finishLevel,
   damage,
   addScore,
@@ -137,7 +137,7 @@ export function useKeyboard() {
           keys.boost = true
           break
         case 'KeyE':
-          usePowerUp()
+          if (g.screen === 'playing' && !g.paused) activatePowerUp()
           break
         case 'KeyP':
         case 'Escape':

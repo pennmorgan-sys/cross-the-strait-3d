@@ -198,7 +198,7 @@ export default function PlayerBoat() {
               outlineWidth={0.06}
               outlineColor="#000000"
             >
-              {ROUTE_STYLE[runtime.tankerRoute].label}
+              {runtime.tankerLabel}
             </Text>
           </>
         )}

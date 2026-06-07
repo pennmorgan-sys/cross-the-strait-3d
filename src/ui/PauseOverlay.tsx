@@ -5,6 +5,8 @@ export default function PauseOverlay() {
   const setPaused = useGame((s) => s.setPaused)
   const setScreen = useGame((s) => s.setScreen)
   const selectedLevel = useGame((s) => s.selectedLevel)
+  const deliveryMode = useGame((s) => s.deliveryMode)
+  const endlessMode = useGame((s) => s.endlessMode)
 
   return (
     <div className="overlay dim">
@@ -17,8 +19,12 @@ export default function PauseOverlay() {
           <button type="button" className="btn secondary" onClick={() => startLevel(selectedLevel)}>
             RESTART LEVEL
           </button>
-          <button type="button" className="btn secondary" onClick={() => setScreen('levels')}>
-            LEVEL SELECT
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => setScreen(deliveryMode ? 'delivery' : 'levels')}
+          >
+            {deliveryMode ? 'DESTINATIONS' : endlessMode ? 'STORY MISSIONS' : 'LEVEL SELECT'}
           </button>
           <button type="button" className="btn secondary" onClick={() => setScreen('menu')}>
             MAIN MENU

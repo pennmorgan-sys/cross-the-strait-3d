@@ -61,29 +61,29 @@ void main() {
   float depthMix = smoothstep(-0.6, 0.9, vHeight);
   vec3 col = mix(uDeep, uShallow, depthMix * 0.7 + 0.12);
   float band = sin(vWorld.z * 0.22 + uTime * 3.2);
-  float foamBands = smoothstep(0.82, 1.0, band) * 0.18;
+  float foamBands = smoothstep(0.9, 1.0, band) * 0.08;
   col += foamBands * uCrest;
   float crest = smoothstep(0.28, 0.72, vHeight);
-  col = mix(col, uCrest, crest * 0.55);
+  col = mix(col, uCrest, crest * 0.32);
   float sparkle = hash(floor(vWorld.xz * 1.3) + floor(uTime * 6.0));
-  col += crest * step(0.93, sparkle) * 0.35;
+  col += crest * step(0.975, sparkle) * 0.16;
   vec3 viewDir = normalize(vec3(uPlayer.x, 6.0, uPlayer.z + 12.0) - vWorld);
   float fres = pow(1.0 - max(dot(n, viewDir), 0.0), 2.8);
-  col += fres * uCrest * 0.55;
+  col += fres * uCrest * 0.34;
   vec3 sunDir = normalize(vec3(0.35, 0.85, -0.4));
   float spec = pow(max(dot(reflect(-viewDir, n), sunDir), 0.0), 48.0);
-  col += spec * uCrest * (0.25 + uCheap * -0.1);
+  col += spec * uCrest * (0.18 + uCheap * -0.08);
   float caustic = sin(vWorld.x * 0.4 + uTime * 2.0) * sin(vWorld.z * 0.35 - uTime * 1.6);
   col += smoothstep(0.65, 1.0, caustic) * uCrest * 0.08 * (1.0 - uCheap);
   if (uBoost > 0.01) {
     float s = smoothstep(0.96, 1.0, sin(vWorld.z * 1.2 + uTime * 26.0))
             * smoothstep(2.5, 0.0, abs(vWorld.x - uPlayer.x));
-    col += s * uBoost * uCrest * 1.2;
+    col += s * uBoost * uCrest * 0.72;
   }
   float d = distance(vWorld.xz, uPlayer.xz);
   float fog = smoothstep(60.0, 180.0, d);
   col = mix(col, uFog, fog);
-  vec3 calmCol = mix(col, vec3(0.15, 0.55, 0.62), uCalm * 0.35);
+  vec3 calmCol = mix(col, vec3(0.12, 0.48, 0.56), uCalm * 0.35);
   col = mix(col, calmCol, uCalm);
   gl_FragColor = vec4(col, 1.0);
 }
@@ -92,7 +92,7 @@ void main() {
 function OceanCheap({ nightMode }: { nightMode?: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const color = useMemo(
-    () => new THREE.Color(nightMode ? '#0a3d52' : '#0B5F7A'),
+    () => new THREE.Color(nightMode ? '#0a3444' : '#0a6f88'),
     [nightMode],
   )
 
@@ -111,8 +111,8 @@ function OceanCheap({ nightMode }: { nightMode?: boolean }) {
       <planeGeometry args={[320, 480, w, h]} />
       <meshStandardMaterial
         color={color}
-        emissive={nightMode ? '#0d4a62' : '#087EA4'}
-        emissiveIntensity={0.12}
+        emissive={nightMode ? '#082f3f' : '#0a5468'}
+        emissiveIntensity={0.08}
         roughness={0.35}
         metalness={0.08}
       />
@@ -137,9 +137,9 @@ function OceanShader({
       uBoost: { value: 0 },
       uOffset: { value: new THREE.Vector3() },
       uPlayer: { value: new THREE.Vector3() },
-      uShallow: { value: new THREE.Color(nightMode ? '#0d4a62' : '#087EA4') },
-      uDeep: { value: new THREE.Color(nightMode ? '#031820' : '#0B5F7A') },
-      uCrest: { value: new THREE.Color(nightMode ? '#3a8fa8' : '#67E8F9') },
+      uShallow: { value: new THREE.Color(nightMode ? '#0d4354' : '#0d7f98') },
+      uDeep: { value: new THREE.Color(nightMode ? '#031820' : '#063d55') },
+      uCrest: { value: new THREE.Color(nightMode ? '#2f8094' : '#8ee6ef') },
       uFog: { value: new THREE.Color(sky.fog) },
       uCalm: { value: 0 },
       uCheap: { value: 0 },

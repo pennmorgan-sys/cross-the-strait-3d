@@ -42,18 +42,18 @@ export default function Lighting({
   if (nightMode) {
     return (
       <>
-        <hemisphereLight args={['#2a4a72', '#050810', 0.62]} />
+        <hemisphereLight args={['#6fa8d8', '#2d2118', 0.78]} />
         <directionalLight
           ref={sunRef}
-          intensity={0.78}
-          color="#a5b8ff"
+          intensity={0.92}
+          color="#c7d8ff"
           {...shadowProps}
         >
           <object3D attach="target" position={[0, 0, -30]} />
         </directionalLight>
-        <ambientLight intensity={0.42} color="#1a2840" />
+        <ambientLight intensity={0.5} color="#26384f" />
         {perfState.tier !== 'mobile' && (
-          <pointLight position={[0, 12, -20]} intensity={0.35} color="#38bdf8" distance={90} />
+          <pointLight position={[0, 12, -20]} intensity={0.42} color="#67e8f9" distance={90} />
         )}
         <pointLight ref={flashRef} color="#F97316" distance={90} decay={1.4} intensity={0} />
       </>
@@ -63,18 +63,18 @@ export default function Lighting({
   const haze = level.id >= 4 ? 1.15 : 1
   return (
     <>
-      <hemisphereLight args={['#c8eeff', '#d4a86a', 0.95 * haze]} />
+      <hemisphereLight args={['#d7f6ff', '#C89F65', 1.15 * haze]} />
       <directionalLight
         ref={sunRef}
-        intensity={1.85 * haze}
-        color="#fff8eb"
+        intensity={2.18 * haze}
+        color="#fff2cf"
         {...shadowProps}
       >
         <object3D attach="target" position={[0, 0, -30]} />
       </directionalLight>
-      <ambientLight intensity={perfState.tier === 'mobile' ? 0.58 : 0.52} color="#e8f4fc" />
+      <ambientLight intensity={perfState.tier === 'mobile' ? 0.68 : 0.62} color="#f4fbff" />
       {perfState.tier !== 'mobile' && (
-        <pointLight position={[0, 14, -25]} intensity={0.28} color="#7dd3fc" distance={100} />
+        <pointLight position={[0, 14, -25]} intensity={0.36} color="#8ee6ef" distance={110} />
       )}
       <pointLight ref={flashRef} color="#F97316" distance={90} decay={1.4} intensity={0} />
     </>

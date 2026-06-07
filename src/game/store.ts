@@ -230,7 +230,10 @@ export const useGame = create<GameStore>((set, get) => ({
       prev.endlessBest === h.endlessBest &&
       prev.playerX === h.playerX &&
       prev.deliveryCountry === h.deliveryCountry &&
-      prev.deliveryFlag === h.deliveryFlag
+      prev.deliveryFlag === h.deliveryFlag &&
+      prev.deliveryPort === h.deliveryPort &&
+      prev.tankerLabel === h.tankerLabel &&
+      prev.routeName === h.routeName
     ) {
       return
     }

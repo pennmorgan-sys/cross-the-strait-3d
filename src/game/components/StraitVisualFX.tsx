@@ -103,7 +103,7 @@ export function SurpriseFlares() {
 }
 
 export function RefineryGlow({ level }: { level: LevelConfig }) {
-  if (level.id !== 5 && level.id !== 99) return null
+  const active = level.id === 5 || level.id === 99
   const stacks = useMemo(
     () =>
       [
@@ -115,8 +115,10 @@ export function RefineryGlow({ level }: { level: LevelConfig }) {
   )
   const root = useRef<THREE.Group>(null)
   useFrame(() => {
+    if (!active) return
     if (root.current) root.current.position.z = runtime.player.z
   })
+  if (!active) return null
   return (
     <group ref={root}>
       {stacks.map((p, i) => (
@@ -138,7 +140,7 @@ export function RefineryGlow({ level }: { level: LevelConfig }) {
 }
 
 const SKY_MISSILE_GEOM = {
-  body: new THREE.ConeGeometry(0.08, 1.4, 6),
+  body: new THREE.CylinderGeometry(0.055, 0.075, 1.3, 8),
   tip: new THREE.SphereGeometry(0.1, 6, 6),
 }
 const SKY_MISSILE_MAT = {
@@ -153,7 +155,7 @@ export function SkyMissilesEnhanced({ count }: { count: number }) {
         x: (Math.random() - 0.5) * 28,
         z: -Math.random() * 90,
         phase: Math.random() * 10,
-        speed: 0.5 + Math.random() * 0.6,
+        speed: 0.26 + Math.random() * 0.34,
       })),
     [count],
   )

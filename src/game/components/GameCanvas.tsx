@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, Vignette, ToneMapping } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
 import { useGame } from '../store'
 import { getLevel, isPeacefulLevel } from '../levels'
@@ -35,7 +36,7 @@ export default function GameCanvas() {
   const peaceful = isPeacefulLevel(level)
   const sky = skyForLevel(level.sky, nightMode)
   const caps = getCaps()
-  const bloomBase = nightMode ? 1.15 : perfState.tier === 'high' ? 1.05 : 0.75
+  const bloomBase = nightMode ? 0.5 : perfState.tier === 'high' ? 0.42 : 0.28
   const usePost = caps.postfx && fxMul > 0.05
   const useBloom = caps.bloom && fxMul > 0.15
 
@@ -86,17 +87,18 @@ export default function GameCanvas() {
             <Bloom
               mipmapBlur
               intensity={bloomBase * fxMul}
-              luminanceThreshold={nightMode ? 0.28 : 0.4}
-              luminanceSmoothing={0.18}
-              radius={0.92}
+              luminanceThreshold={nightMode ? 0.44 : 0.62}
+              luminanceSmoothing={0.28}
+              radius={0.58}
             />
           ) : (
             <></>
           )}
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} adaptive={false} resolution={128} />
           <Vignette
             eskil={false}
-            offset={0.2}
-            darkness={(nightMode ? 0.58 : 0.38) * fxMul}
+            offset={0.28}
+            darkness={(nightMode ? 0.42 : 0.24) * fxMul}
           />
         </EffectComposer>
       )}

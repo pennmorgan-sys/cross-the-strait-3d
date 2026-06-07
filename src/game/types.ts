@@ -55,6 +55,8 @@ export interface LevelConfig {
   specialSupplyBurstMax?: number
   /** No bombs, mines, patrols, or combat surprises — escort / delivery only */
   peaceful?: boolean
+  /** World Delivery: stop spawning combat hazards after the Strait escape phase */
+  calmAfterProgress?: number
 }
 
 export interface BestRecord {
@@ -91,6 +93,9 @@ export interface HudSnapshot {
   playerX?: number
   deliveryCountry?: string
   deliveryFlag?: string
+  deliveryPort?: string
+  tankerLabel?: string
+  routeName?: string
 }
 
 export interface RunStats {

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { setJoystick, releaseJoystick, setBoostBtn, getJoystickNubPx } from '../game/input'
-import { usePowerUp } from '../game/runtime'
+import { activatePowerUp } from '../game/runtime'
 import { useGame } from '../game/store'
 
-const RADIUS = 52
+const RADIUS = 62
 
 export default function MobileControls() {
   const baseRef = useRef<HTMLDivElement>(null)
@@ -67,10 +67,18 @@ export default function MobileControls() {
         onPointerUp={(e) => {
           if (pointerId.current === e.pointerId) {
             pointerId.current = null
+            baseRef.current?.releasePointerCapture(e.pointerId)
             releaseJoystick()
           }
         }}
-        onPointerCancel={() => {
+        onPointerCancel={(e) => {
+          if (pointerId.current === e.pointerId) {
+            baseRef.current?.releasePointerCapture(e.pointerId)
+          }
+          pointerId.current = null
+          releaseJoystick()
+        }}
+        onLostPointerCapture={() => {
           pointerId.current = null
           releaseJoystick()
         }}
@@ -98,7 +106,7 @@ export default function MobileControls() {
         className="mob-btn mob-power"
         aria-label="Use power-up"
         onPointerDown={(e) => e.preventDefault()}
-        onClick={() => usePowerUp()}
+        onClick={() => activatePowerUp()}
       >
         POWER
       </button>

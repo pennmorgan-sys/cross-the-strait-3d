@@ -24,7 +24,7 @@ export default function LevelSelect() {
     <div className="overlay dim levels-screen">
       <div className="levels-header">
         <h2 className="subtitle">MISSIONS</h2>
-        <p className="muted">Eight tanker runs through the Strait. Beat targets for stars.</p>
+        <p className="muted">Five story escorts, tuned from tutorial pressure to medium. Beat targets for stars.</p>
       </div>
 
       <div className="levels-scroll">

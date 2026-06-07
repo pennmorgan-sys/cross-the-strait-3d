@@ -1,5 +1,5 @@
 import { useGame } from '../game/store'
-import { runtime } from '../game/runtime'
+import { runtime, startLevel } from '../game/runtime'
 import { getMissionBriefing } from '../game/missionBriefings'
 import { getDeliveryDestination, deliveryBriefing } from '../game/deliveryDestinations'
 import { TOTAL_LEVELS, CHAOS_LEVEL_ID } from '../game/constants'
@@ -31,7 +31,7 @@ export default function WinScreen() {
         </h2>
         <p className="muted">
           {deliveryMode && dest
-            ? `Oil delivered to ${dest.port}, ${dest.country}.`
+            ? dest.successText
             : `${mission.title} — cargo route secured.`}
         </p>
         <p className="muted">{mission.routeLabel}</p>
@@ -69,7 +69,11 @@ export default function WinScreen() {
               NEXT MISSION {'\u2192'}
             </button>
           )}
-          <button type="button" className="btn" onClick={() => startMission(selectedLevel)}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => (deliveryMode && dest ? startLevel(selectedLevel) : startMission(selectedLevel))}
+          >
             RETRY
           </button>
           {deliveryMode && dest && (

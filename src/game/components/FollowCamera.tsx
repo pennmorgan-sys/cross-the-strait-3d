@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { easing } from 'maath'
 import { runtime } from '../runtime'
 import { isBoosting } from '../input'
 import { clamp, damp, lerp } from '../systems/math'
@@ -16,6 +17,7 @@ export default function FollowCamera() {
   const velZ = useRef(0)
   const lastPz = useRef(0)
   const shakePhase = useRef(0)
+  const lookTarget = useRef(new THREE.Vector3())
 
   useFrame((_, dt) => {
     const p = runtime.player
@@ -40,10 +42,11 @@ export default function FollowCamera() {
     }
 
     const steady = Math.abs(runtime.vx) < 0.12 && runtime.shake < 0.008
-    const camRate = perfState.tier === 'mobile' ? 5.5 : steady ? 10 : 6.5
-    camera.position.lerp(tmp, damp(camRate, d))
+    const smoothTime = perfState.tier === 'mobile' ? 0.28 : steady ? 0.18 : 0.24
+    easing.damp3(camera.position, tmp, smoothTime, d)
     look.set(p.x * 0.38, p.y + 2.5, p.z - hullLen * 1.8 - lead * 0.25)
-    camera.lookAt(look)
+    easing.damp3(lookTarget.current, look, 0.18, d)
+    camera.lookAt(lookTarget.current)
 
     const rollTarget = clamp(-runtime.vx / MAX_LATERAL, -1, 1) * 0.035
     roll.current = lerp(roll.current, rollTarget, damp(5.5, d))
